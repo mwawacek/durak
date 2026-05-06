@@ -12,7 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
-import { colors, spacing, radii } from '../theme/colors';
+import { colors, spacing, radii, fonts } from '../theme/colors';
 import { getSocket, emitAck, getApiUrl } from '../services/socket';
 import { attachSocketHandlers } from '../services/socketHandlers';
 import { useGameStore } from '../store/gameStore';
@@ -126,11 +126,16 @@ const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.bg },
   container: { flex: 1, padding: spacing(6), justifyContent: 'center' },
   title: {
-    color: colors.accentStrong,
-    fontSize: 48,
+    color: colors.goldHighlight,
+    fontSize: 56,
     fontWeight: '800',
     textAlign: 'center',
     letterSpacing: 2,
+    fontFamily: fonts.serif,
+    fontStyle: 'italic',
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
     color: colors.textDim,
