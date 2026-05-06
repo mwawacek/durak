@@ -34,24 +34,37 @@ When testing on a physical phone over LAN, both phone and laptop must be on the 
 src/
 ├── App.tsx                 (in apps/mobile/App.tsx — outside src/)
 ├── navigation/             # @react-navigation native-stack: Login → Lobby → Game
-├── screens/                # LoginScreen, LobbyScreen, GameScreen
-├── components/             # Card, PlayerHand, Table, PlayerBar, RoleBanner, ActionBar, Toast
+├── screens/                # LoginScreen, LobbyScreen, GameScreen (split into outer + ActiveGame)
+├── components/             # Card, PlayerHand, OvalTable, PlayerSeat, TrumpReservoir,
+│                           # BattleField, BrassButton, RingedAvatar, Toast
+├── hooks/
+│   ├── useGameRules.ts     # Derives isAttacker/isDefender/playableCardIds/etc. from game state
+│   └── useTableLayout.ts   # Oval geometry + opponent seat positions on the rim
 ├── services/
-│   ├── socket.ts           # Socket.IO singleton + emitAck() helper
+│   ├── socket.ts           # Socket.IO singleton + emitAck() / emitAckOrToast() helpers
 │   └── socketHandlers.ts   # Wires server-pushed events into the store
 ├── store/
 │   └── gameStore.ts        # Zustand store: rooms, current game, player identity, lastError
 └── theme/
-    └── colors.ts           # Casino Felt palette + spacing/radii/elevation helpers
+    └── colors.ts           # Classic Mahogany palette + presets + spacing/radii/elevation
 ```
 
-## The "Casino Felt" design system
+## The "Classic Mahogany" design system
 
-All visual decisions live in `src/theme/colors.ts`. **Never hard-code colors elsewhere** — extend the palette if you need a new token. Card faces use a warm cream (`cardFace`) with true-black for clubs/spades (`cardSuitBlack`, NOT navy) and a deep red for hearts/diamonds (`cardSuitRed`).
+Warm dark mahogany backdrop, oval forest-felt table with double gold rail,
+brass action buttons, cream Russian-style cards with monogram face cards
+(B/D/K/A) and pip layouts for 6..10. All visual decisions live in
+`src/theme/colors.ts`. **Never hard-code colors in components** — extend the
+palette or add a `presets` style atom if you need a new token. Style atoms
+like `presets.goldPill` exist to dedupe the gold-rimmed dark pill used for
+name plates, count badges, and the "Du" plate.
 
-Card sizes are fixed in `Card.tsx` SIZE map: `sm` (44×64) for opponent stacks, `md` (64×92) for table, `lg` (80×116) for the player's hand.
+Card sizes (`CARD_SIZES` exported from `Card.tsx`): `sm` (44×64) for
+opponent stacks, `md` (64×92) for table cards, `lg` (80×116) for the
+player's hand. Use `cardDims(size)` to get `{w, h}` if reserving space.
 
-Full design rationale: `docs/superpowers/specs/2026-05-06-durak-mobile-redesign-design.md`.
+Full design rationale + handoff: `docs/superpowers/specs/2026-05-06-durak-mobile-redesign-design.md`
+and `/tmp/durak-design/durak/project/Durak Classic.html` (the source mockup).
 
 ## Defender-flow contract (don't break this)
 
@@ -83,12 +96,12 @@ User-facing strings are German. Keep variable names and code comments English. C
 |---|---|---|
 | Du greifst an | You attack | RoleBanner attacker |
 | Du verteidigst | You defend | RoleBanner defender |
-| Bito | Done | End-turn button (Russian Durak term, kept) |
-| Karten nehmen | Take cards | Defender concedes |
+| Fertig | Done | End-turn button (German equivalent of "Bito") |
+| Nehmen | Take cards | Defender concedes |
 | Weiterschieben | Pass on | Redirect attack to next player |
 | Trumpf | Trump | Trump suit |
 | Nachziehstapel / Abwurf | Deck / Discard | Top-of-table labels |
-| Tisch ist frei | Table is empty | Empty-state caption |
+| Verteidigen oder Weiterschieben | Defend or pass on | RoleBanner sub-line for defender |
 
 ## Future: App Store deploy
 

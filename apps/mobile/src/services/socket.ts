@@ -60,14 +60,17 @@ export const emitAck = async (
   event: string,
   payload?: unknown,
 ): Promise<AckResult<unknown>> => {
+  const s = getSocket();
   try {
-    const s = getSocket();
     const args = payload === undefined ? [] : [payload];
     return (await s.timeout(10_000).emitWithAck(event, ...args)) as AckResult<unknown>;
   } catch (err) {
+    const message = s.connected
+      ? 'Server hat nicht geantwortet'
+      : 'Verbindung getrennt';
     return {
       ok: false,
-      error: { code: ERROR_CODES.TIMEOUT, message: (err as Error).message },
+      error: { code: ERROR_CODES.TIMEOUT, message },
     };
   }
 };

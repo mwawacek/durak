@@ -360,7 +360,16 @@ const checkFinished = (s: GameStateInternal): void => {
   const activePlayers = s.players.filter((p) => !p.hasFinished);
   if (activePlayers.length <= 1 && s.deck.length === 0) {
     s.phase = 'finished';
-    s.loserId = activePlayers.length === 1 ? activePlayers[0]!.id : null;
+    if (activePlayers.length === 1) {
+      s.loserId = activePlayers[0]!.id;
+    } else {
+      // Edge case: everyone finished on the same step (e.g. last refill drained
+      // both hands). The "natural durak" is whoever finished LAST.
+      const last = s.players
+        .filter((p) => p.finishedAt !== null)
+        .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
+      s.loserId = last?.id ?? null;
+    }
   }
 };
 

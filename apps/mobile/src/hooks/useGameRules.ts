@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 import {
   beats,
   canRedirectWith,
+  ranksOnTable,
+  tableFullyDefended,
   type GameStatePrivate,
   type PlayerPublic,
 } from '@durak/shared';
@@ -68,11 +70,7 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
         for (const c of game.you.hand) ids.add(c.id);
         return ids;
       }
-      const tableRanks = new Set<string>();
-      for (const pair of game.table) {
-        tableRanks.add(pair.attack.rank);
-        if (pair.defense) tableRanks.add(pair.defense.rank);
-      }
+      const tableRanks = ranksOnTable(game.table);
       const undefendedCount = game.table.filter((p) => !p.defense).length;
       const defenderCapacity = (defender?.handCount ?? 0) > undefendedCount;
       if (!defenderCapacity) return ids;
@@ -94,7 +92,7 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
     return ids;
   }, [game, isDefender, selectedCardId, redirectMode]);
 
-  const allDefended = game.table.length > 0 && game.table.every((p) => p.defense !== null);
+  const allDefended = tableFullyDefended(game.table);
   const undefendedCount = game.table.filter((p) => !p.defense).length;
 
   return {

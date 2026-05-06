@@ -99,13 +99,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private finalizeDisconnect(playerId: string): void {
-    // After grace window, remove from all lobby rooms (in-game rooms keep the slot
-    // in case of a fresh reconnect through a future resume flow).
     const roomsForPlayer = this.rooms.roomsForPlayer(playerId);
     for (const room of roomsForPlayer) {
       if (room.status === 'lobby') {
         this.rooms.leave(room.id, playerId);
         this.broadcastRoomList();
+        this.broadcastRoomState(room.id);
+        continue;
+      }
+      // In-game room: drop the player and abandon the room if everyone left.
+      const remaining = this.rooms.leave(room.id, playerId);
+      if (!remaining || remaining.members.every((m) => !m.isConnected)) {
+        this.games.remove(room.id);
+        if (remaining) this.rooms.finishGame(room.id);
+        this.broadcastRoomList();
+      } else {
         this.broadcastRoomState(room.id);
       }
     }

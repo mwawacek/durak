@@ -1,14 +1,19 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
-import { SOCKET_EVENTS, beats, type Card as CardType } from '@durak/shared';
+import {
+  SOCKET_EVENTS,
+  beats,
+  type Card as CardType,
+  type GameStatePrivate,
+} from '@durak/shared';
 import { useGameStore } from '../store/gameStore';
 import { emitAckOrToast } from '../services/socket';
 import { OvalTable } from '../components/OvalTable';
-import { PlayerSeat, type SeatRole } from '../components/PlayerSeat';
+import { PlayerSeat } from '../components/PlayerSeat';
 import { TrumpReservoir } from '../components/TrumpReservoir';
 import { BattleField } from '../components/BattleField';
 import { BrassButton } from '../components/BrassButton';
@@ -29,34 +34,7 @@ type Selection =
 const NO_SELECTION: Selection = { kind: 'none' };
 
 export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
-  const { roomId } = route.params;
   const game = useGameStore((s) => s.game);
-  const playerId = useGameStore((s) => s.playerId);
-  const playerName = useGameStore((s) => s.playerName);
-  const lastError = useGameStore((s) => s.lastError);
-  const setError = useGameStore((s) => s.setError);
-
-  const [selection, setSelection] = useState<Selection>(NO_SELECTION);
-  const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    setError(null);
-  }, [setError]);
-
-  useEffect(() => {
-    if (game?.phase === 'finished') {
-      const loserName = game.players.find((p) => p.id === game.loserId)?.name ?? '—';
-      const iAmLoser = game.loserId === playerId;
-      Alert.alert(
-        iAmLoser ? 'Du bist der Durak!' : 'Spielende',
-        iAmLoser ? 'Beim nächsten Mal!' : `Durak: ${loserName}`,
-        [{ text: 'Zurück zur Lobby', onPress: () => navigation.replace('Lobby') }],
-      );
-    }
-  }, [game?.phase, game?.loserId, game?.players, playerId, navigation]);
-
-  const geometry = useTableGeometry();
-
   if (!game) {
     return (
       <View style={[styles.root, styles.center]}>
@@ -64,51 +42,51 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
       </View>
     );
   }
-
-  return (
-    <ActiveGame
-      roomId={roomId}
-      game={game}
-      playerId={playerId}
-      playerName={playerName}
-      lastError={lastError}
-      setError={setError}
-      selection={selection}
-      setSelection={setSelection}
-      busy={busy}
-      setBusy={setBusy}
-      geometry={geometry}
-    />
-  );
+  return <ActiveGame route={route} navigation={navigation} game={game} />;
 };
 
-interface ActiveGameProps {
-  roomId: string;
-  game: NonNullable<ReturnType<typeof useGameStore.getState>['game']>;
-  playerId: string | null;
-  playerName: string | null;
-  lastError: string | null;
-  setError: (msg: string | null) => void;
-  selection: Selection;
-  setSelection: React.Dispatch<React.SetStateAction<Selection>>;
-  busy: boolean;
-  setBusy: (b: boolean) => void;
-  geometry: ReturnType<typeof useTableGeometry>;
+interface ActiveGameProps extends Props {
+  game: GameStatePrivate;
 }
 
-const ActiveGame: React.FC<ActiveGameProps> = ({
-  roomId,
-  game,
-  playerId,
-  playerName,
-  lastError,
-  setError,
-  selection,
-  setSelection,
-  busy,
-  setBusy,
-  geometry,
-}) => {
+const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
+  const { roomId } = route.params;
+  const playerId = useGameStore((s) => s.playerId);
+  const playerName = useGameStore((s) => s.playerName);
+  const lastError = useGameStore((s) => s.lastError);
+  const setError = useGameStore((s) => s.setError);
+
+  const [selection, setSelection] = useState<Selection>(NO_SELECTION);
+  // busy: useRef for the synchronous double-tap guard, useState for the visual flag.
+  const busyRef = useRef(false);
+  const [busyVisual, setBusyVisual] = useState(false);
+  const setBusy = (b: boolean) => {
+    busyRef.current = b;
+    setBusyVisual(b);
+  };
+
+  const geometry = useTableGeometry();
+
+  useEffect(() => {
+    setError(null);
+  }, [setError]);
+
+  useEffect(() => {
+    if (game.phase === 'finished') {
+      const loserName = game.players.find((p) => p.id === game.loserId)?.name ?? '—';
+      const iAmLoser = game.loserId === playerId;
+      Alert.alert(
+        iAmLoser ? 'Du bist der Durak!' : 'Spielende',
+        iAmLoser
+          ? 'Beim nächsten Mal!'
+          : game.loserId
+            ? `Durak: ${loserName}`
+            : 'Unentschieden',
+        [{ text: 'Zurück zur Lobby', onPress: () => navigation.replace('Lobby') }],
+      );
+    }
+  }, [game.phase, game.loserId, game.players, playerId, navigation]);
+
   const redirectMode = selection.kind === 'redirect';
   const selectedCardId = selection.kind === 'card' ? selection.cardId : null;
 
@@ -124,6 +102,14 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
     undefendedCount,
   } = rules;
 
+  // Clear stale selection if the selected card is no longer in our hand
+  // (e.g. after a server push that mutated the hand mid-tap).
+  useEffect(() => {
+    if (selectedCardId && !game.you.hand.some((c) => c.id === selectedCardId)) {
+      setSelection(NO_SELECTION);
+    }
+  }, [game.you.hand, selectedCardId]);
+
   const opponents = useMemo(
     () => game.players.filter((p) => p.id !== playerId),
     [game.players, playerId],
@@ -135,13 +121,17 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
 
   const playDefense = async (attackCardId: string, defenseCard: CardType) => {
     setBusy(true);
-    await emitAckOrToast(SOCKET_EVENTS.DEFEND_CARD, { roomId, attackCardId, defenseCard });
+    const ok = await emitAckOrToast(SOCKET_EVENTS.DEFEND_CARD, {
+      roomId,
+      attackCardId,
+      defenseCard,
+    });
     setBusy(false);
-    setSelection(NO_SELECTION);
+    if (ok !== null) setSelection(NO_SELECTION);
   };
 
   const handleCardSelect = async (card: CardType) => {
-    if (busy) return;
+    if (busyRef.current) return;
     setError(null);
 
     if (isDefender && redirectMode) {
@@ -150,9 +140,9 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
         return;
       }
       setBusy(true);
-      await emitAckOrToast(SOCKET_EVENTS.REDIRECT_ATTACK, { roomId, card });
+      const ok = await emitAckOrToast(SOCKET_EVENTS.REDIRECT_ATTACK, { roomId, card });
       setBusy(false);
-      setSelection(NO_SELECTION);
+      if (ok !== null) setSelection(NO_SELECTION);
       return;
     }
 
@@ -181,13 +171,13 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
       return;
     }
     setBusy(true);
-    await emitAckOrToast(SOCKET_EVENTS.PLAY_CARD, { roomId, card });
+    const ok = await emitAckOrToast(SOCKET_EVENTS.PLAY_CARD, { roomId, card });
     setBusy(false);
-    setSelection(NO_SELECTION);
+    if (ok !== null) setSelection(NO_SELECTION);
   };
 
   const handleAttackTap = async (attackCardId: string) => {
-    if (!isDefender || busy || !selectedCardId) return;
+    if (!isDefender || busyRef.current || !selectedCardId) return;
     if (!candidateAttackIds.has(attackCardId)) return;
     const card = game.you.hand.find((c) => c.id === selectedCardId);
     if (!card) return;
@@ -195,14 +185,14 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
   };
 
   const handleEndTurn = async () => {
-    if (busy) return;
+    if (busyRef.current) return;
     setBusy(true);
     await emitAckOrToast(SOCKET_EVENTS.END_TURN, { roomId });
     setBusy(false);
   };
 
   const handleTake = async () => {
-    if (busy) return;
+    if (busyRef.current) return;
     setBusy(true);
     await emitAckOrToast(SOCKET_EVENTS.TAKE_CARDS, { roomId });
     setBusy(false);
@@ -225,9 +215,7 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
         style={StyleSheet.absoluteFill}
       />
 
-      <View
-        style={[styles.tableLayer, { width: geometry.tableW, height: geometry.tableH }]}
-      >
+      <View style={[styles.tableLayer, { width: geometry.tableW, height: geometry.tableH }]}>
         <OvalTable cx={geometry.cx} cy={geometry.cy} rx={geometry.rx} ry={geometry.ry} />
       </View>
 
@@ -282,7 +270,12 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
 
         <View style={styles.actionsRow}>
           {canEndTurn ? (
-            <BrassButton variant="primary" label="Fertig" onPress={handleEndTurn} disabled={busy} />
+            <BrassButton
+              variant="primary"
+              label="Fertig"
+              onPress={handleEndTurn}
+              disabled={busyVisual}
+            />
           ) : null}
           {canTake ? (
             <BrassButton
@@ -290,7 +283,7 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
               label="Nehmen"
               badge={undefendedCount > 0 ? `+${undefendedCount}` : undefined}
               onPress={handleTake}
-              disabled={busy}
+              disabled={busyVisual}
             />
           ) : null}
           {canRedirect ? (
@@ -298,7 +291,7 @@ const ActiveGame: React.FC<ActiveGameProps> = ({
               variant={redirectMode ? 'secondary-active' : 'secondary'}
               label={redirectMode ? 'Abbrechen' : 'Weiterschieben'}
               onPress={() => setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' })}
-              disabled={busy}
+              disabled={busyVisual}
             />
           ) : null}
         </View>
@@ -350,9 +343,6 @@ const buildBanner = (args: {
   }
   return { line: `${defenderName ?? 'Gegner'} verteidigt`, sub: 'Bitte warten' };
 };
-
-// Re-export for callers that previously imported SeatRole from this file
-export type { SeatRole };
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },

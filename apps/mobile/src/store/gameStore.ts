@@ -27,9 +27,21 @@ const roomsEqual = (a: RoomPublic[], b: RoomPublic[]): boolean => {
     const y = b[i]!;
     if (x.id !== y.id) return false;
     if (x.status !== y.status) return false;
-    if (x.players.length !== y.players.length) return false;
     if (x.ownerId !== y.ownerId) return false;
     if (x.maxPlayers !== y.maxPlayers) return false;
+    if (x.players.length !== y.players.length) return false;
+    for (let j = 0; j < x.players.length; j++) {
+      const px = x.players[j]!;
+      const py = y.players[j]!;
+      if (
+        px.id !== py.id ||
+        px.name !== py.name ||
+        px.isConnected !== py.isConnected ||
+        px.hasFinished !== py.hasFinished
+      ) {
+        return false;
+      }
+    }
   }
   return true;
 };
