@@ -34,6 +34,7 @@ import { PlayerService } from '../player/player.service';
 import { RoomService, RoomError } from '../room/room.service';
 import { GameService } from '../game/game.service';
 import { GameRuleError } from '../game/game.engine';
+import { GameStateInternal } from '../game/game.types';
 
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -224,11 +225,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
       this.broadcastRoomList();
       this.broadcastRoomState(room.id);
-      this.server.to(room.id).emit(SOCKET_EVENTS.ROUND_STARTED, {
-        roomId: room.id,
-        attackerId: game.players[game.attackerIdx]!.id,
-        defenderId: game.players[game.defenderIdx]!.id,
-      });
+      this.emitRoundStarted(room.id, game);
       this.broadcastGameState(room.id);
       return undefined;
     });
@@ -271,11 +268,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const player = this.requirePlayer(client);
       const state = this.games.redirect(payload.roomId, player.id, payload.card);
       this.broadcastGameState(payload.roomId);
-      this.server.to(payload.roomId).emit(SOCKET_EVENTS.ROUND_STARTED, {
-        roomId: payload.roomId,
-        attackerId: state.players[state.attackerIdx]!.id,
-        defenderId: state.players[state.defenderIdx]!.id,
-      });
+      this.emitRoundStarted(payload.roomId, state);
       this.maybeFinishGame(payload.roomId);
       return undefined;
     });
@@ -290,13 +283,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const player = this.requirePlayer(client);
       const state = this.games.endTurn(payload.roomId, player.id);
       this.broadcastGameState(payload.roomId);
-      if (state.phase !== 'finished') {
-        this.server.to(payload.roomId).emit(SOCKET_EVENTS.ROUND_STARTED, {
-          roomId: payload.roomId,
-          attackerId: state.players[state.attackerIdx]!.id,
-          defenderId: state.players[state.defenderIdx]!.id,
-        });
-      }
+      this.emitRoundStarted(payload.roomId, state);
       this.maybeFinishGame(payload.roomId);
       return undefined;
     });
@@ -311,13 +298,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const player = this.requirePlayer(client);
       const state = this.games.takeCards(payload.roomId, player.id);
       this.broadcastGameState(payload.roomId);
-      if (state.phase !== 'finished') {
-        this.server.to(payload.roomId).emit(SOCKET_EVENTS.ROUND_STARTED, {
-          roomId: payload.roomId,
-          attackerId: state.players[state.attackerIdx]!.id,
-          defenderId: state.players[state.defenderIdx]!.id,
-        });
-      }
+      this.emitRoundStarted(payload.roomId, state);
       this.maybeFinishGame(payload.roomId);
       return undefined;
     });
@@ -340,31 +321,23 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   private broadcastGameState(roomId: string): void {
-    const snapshot = this.games.snapshot(roomId);
-    if (!snapshot) return;
-    for (const player of snapshot.players) {
-      const onlinePlayer = this.players.getBySocketId(this.socketOf(player.id) ?? '');
-      // Emit per-player on their personal room membership (socket has joined roomId).
-      const view = this.games.viewFor(roomId, player.id);
-      if (!view) continue;
-      const socketId = this.socketOf(player.id);
+    const views = this.games.viewsFor(roomId);
+    if (!views) return;
+    for (const [playerId, view] of views) {
+      const socketId = this.players.getSocketId(playerId);
       if (socketId) {
         this.server.to(socketId).emit(SOCKET_EVENTS.GAME_STATE_UPDATE, view);
       }
-      // silence the unused warning in dev
-      void onlinePlayer;
     }
   }
 
-  private socketOf(playerId: string): string | null {
-    // Reverse lookup via PlayerService's internal map.
-    // We kept it encapsulated — use a small helper exposed via the service.
-    // Simplest: iterate over sockets in the room and match by registered player id.
-    for (const [sid] of this.server.sockets.sockets) {
-      const p = this.players.getBySocketId(sid);
-      if (p?.id === playerId) return sid;
-    }
-    return null;
+  private emitRoundStarted(roomId: string, state: GameStateInternal): void {
+    if (state.phase === 'finished') return;
+    this.server.to(roomId).emit(SOCKET_EVENTS.ROUND_STARTED, {
+      roomId,
+      attackerId: state.players[state.attackerIdx]!.id,
+      defenderId: state.players[state.defenderIdx]!.id,
+    });
   }
 
   private maybeFinishGame(roomId: string): void {

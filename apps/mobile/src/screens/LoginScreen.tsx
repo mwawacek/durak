@@ -60,7 +60,7 @@ export const LoginScreen: React.FC<Props> = ({ navigation }) => {
     }
 
     setIdentity(ack.data.playerId, name.trim());
-    useGameStore.getState().setRooms(ack.data.rooms);
+    useGameStore.getState().upsertRooms(ack.data.rooms);
     navigation.replace('Lobby');
   };
 

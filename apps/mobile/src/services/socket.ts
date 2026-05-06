@@ -1,13 +1,7 @@
 import { io, Socket } from 'socket.io-client';
 import { NativeModules, Platform } from 'react-native';
-import type {
-  ClientToServerEvents,
-  ServerToClientEvents,
-  SOCKET_EVENTS,
-  AckResult,
-} from '@durak/shared';
-
-type TypedSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
+import { type AckResult, ERROR_CODES } from '@durak/shared';
+import { useGameStore } from '../store/gameStore';
 
 /**
  * Resolve backend URL in priority order:
@@ -39,56 +33,58 @@ const resolveApiUrl = (): string => {
 
 export const getApiUrl = resolveApiUrl;
 
-let socket: TypedSocket | null = null;
+let socket: Socket | null = null;
 
-export const getSocket = (): TypedSocket => {
-  if (socket && socket.connected) return socket;
+export const getSocket = (): Socket => {
   if (socket) return socket;
 
   socket = io(resolveApiUrl(), {
     autoConnect: true,
-    // websocket first, fall back to polling (web browsers sometimes need it).
     transports: ['websocket', 'polling'],
     reconnection: true,
     reconnectionDelay: 500,
     reconnectionDelayMax: 4000,
-    reconnectionAttempts: Infinity,
+    reconnectionAttempts: 50,
     timeout: 10_000,
-  }) as TypedSocket;
+  });
 
   return socket;
 };
 
-export const emitAck = <
-  Ev extends keyof ClientToServerEvents,
-  Args extends Parameters<ClientToServerEvents[Ev]>,
->(
-  event: Ev,
-  ...args: Args extends [...infer Payload, (ack: AckResult<infer _>) => void]
-    ? Payload
-    : Args
+/**
+ * Emit a socket event with an ack and a 10s timeout. The server returns
+ * `AckResult<T>`. Payload is typed as unknown — callers provide the right
+ * shape per event (the contract lives in @durak/shared).
+ */
+export const emitAck = async (
+  event: string,
+  payload?: unknown,
 ): Promise<AckResult<unknown>> => {
-  return new Promise((resolve) => {
+  try {
     const s = getSocket();
-    // socket.io-client uses timeout().emit() for ack with timeout
-    (s as unknown as {
-      timeout: (ms: number) => { emit: (e: string, ...rest: unknown[]) => void };
-    })
-      .timeout(10_000)
-      .emit(event as string, ...(args as unknown[]), (err: Error | null, ack: AckResult<unknown>) => {
-        if (err) {
-          resolve({ ok: false, error: { code: 'TIMEOUT', message: err.message } });
-          return;
-        }
-        resolve(ack);
-      });
-  });
+    const args = payload === undefined ? [] : [payload];
+    return (await s.timeout(10_000).emitWithAck(event, ...args)) as AckResult<unknown>;
+  } catch (err) {
+    return {
+      ok: false,
+      error: { code: ERROR_CODES.TIMEOUT, message: (err as Error).message },
+    };
+  }
 };
 
-export const disconnectSocket = (): void => {
-  socket?.disconnect();
-  socket = null;
+/**
+ * Like emitAck, but on failure routes the error message into the global Toast
+ * (via useGameStore.setError) and resolves with null. On success returns ack.data
+ * cast to T.
+ */
+export const emitAckOrToast = async <T = unknown>(
+  event: string,
+  payload?: unknown,
+): Promise<T | null> => {
+  const ack = (await emitAck(event, payload)) as AckResult<T>;
+  if (!ack.ok) {
+    useGameStore.getState().setError(ack.error.message);
+    return null;
+  }
+  return ack.data;
 };
-
-export type { TypedSocket };
-export type SocketEventName = (typeof SOCKET_EVENTS)[keyof typeof SOCKET_EVENTS];

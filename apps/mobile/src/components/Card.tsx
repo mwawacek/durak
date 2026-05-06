@@ -1,16 +1,7 @@
 import React from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
-import type { Card as CardType, Suit } from '@durak/shared';
+import { type Card as CardType, SUIT_GLYPH, isRedSuit } from '@durak/shared';
 import { colors, elevation, radii, spacing } from '../theme/colors';
-
-const SUIT_GLYPH: Record<Suit, string> = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠',
-};
-
-const isRed = (suit: Suit): boolean => suit === 'hearts' || suit === 'diamonds';
 
 const SERIF = Platform.select({ ios: 'Georgia', android: 'serif', default: 'serif' });
 
@@ -32,6 +23,36 @@ const SIZE = {
   lg: { width: 80, height: 116, rank: 22, suitCorner: 16, suitCenter: 44 },
 } as const;
 
+/**
+ * Empty placeholder slot the size of a card, with a dashed border in the felt edge color.
+ * Used for the "table is free" hint and undefended-attack outlines.
+ */
+export const CardSlot: React.FC<{ size?: 'sm' | 'md' | 'lg'; style?: ViewStyle }> = ({
+  size = 'md',
+  style,
+}) => {
+  const dims = SIZE[size];
+  return (
+    <View
+      style={[
+        slotStyles.slot,
+        { width: dims.width, height: dims.height },
+        style,
+      ]}
+    />
+  );
+};
+
+const slotStyles = StyleSheet.create({
+  slot: {
+    borderRadius: radii.card,
+    borderWidth: 1.5,
+    borderStyle: 'dashed',
+    borderColor: colors.feltEdge,
+    backgroundColor: 'transparent',
+  },
+});
+
 export const Card: React.FC<Props> = ({
   card,
   faceDown,
@@ -43,7 +64,7 @@ export const Card: React.FC<Props> = ({
   style,
 }) => {
   const dims = SIZE[size];
-  const suitColor = card && isRed(card.suit) ? colors.cardSuitRed : colors.cardSuitBlack;
+  const suitColor = card && isRedSuit(card.suit) ? colors.cardSuitRed : colors.cardSuitBlack;
 
   const content = (
     <View

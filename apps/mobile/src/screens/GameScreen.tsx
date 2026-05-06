@@ -5,12 +5,12 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import {
   SOCKET_EVENTS,
-  RANK_ORDER,
+  beats,
+  canRedirectWith,
   type Card as CardType,
-  type AckResult,
 } from '@durak/shared';
 import { useGameStore } from '../store/gameStore';
-import { emitAck } from '../services/socket';
+import { emitAckOrToast } from '../services/socket';
 import { Table } from '../components/Table';
 import { PlayerHand } from '../components/PlayerHand';
 import { PlayerBar } from '../components/PlayerBar';
@@ -21,11 +21,12 @@ import { colors, spacing } from '../theme/colors';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 
-const beats = (attack: CardType, defense: CardType, trumpSuit: string | null): boolean => {
-  if (defense.suit === attack.suit) return RANK_ORDER[defense.rank] > RANK_ORDER[attack.rank];
-  if (trumpSuit && defense.suit === trumpSuit && attack.suit !== trumpSuit) return true;
-  return false;
-};
+type Selection =
+  | { kind: 'none' }
+  | { kind: 'card'; cardId: string }
+  | { kind: 'redirect' };
+
+const NO_SELECTION: Selection = { kind: 'none' };
 
 export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const { roomId } = route.params;
@@ -34,8 +35,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const lastError = useGameStore((s) => s.lastError);
   const setError = useGameStore((s) => s.setError);
 
-  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
-  const [redirectMode, setRedirectMode] = useState(false);
+  const [selection, setSelection] = useState<Selection>(NO_SELECTION);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -57,14 +57,12 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const isAttacker = game?.attackerId === playerId;
   const isDefender = game?.defenderId === playerId;
   const defender = game?.players.find((p) => p.id === game.defenderId);
+  const redirectMode = selection.kind === 'redirect';
+  const selectedCardId = selection.kind === 'card' ? selection.cardId : null;
 
   const canRedirect = useMemo<boolean>(() => {
-    if (!game || !isDefender || game.you.hand.length < 2) return false;
-    if (game.table.length === 0) return false;
-    if (game.table.some((p) => p.defense !== null)) return false;
-    const firstRank = game.table[0]!.attack.rank;
-    if (!game.table.every((p) => p.attack.rank === firstRank)) return false;
-    return game.you.hand.some((c) => c.rank === firstRank);
+    if (!game || !isDefender) return false;
+    return canRedirectWith(game.you.hand, game.table);
   }, [game, isDefender]);
 
   const playableCardIds = useMemo<Set<string>>(() => {
@@ -134,14 +132,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const playDefense = async (attackCardId: string, defenseCard: CardType) => {
     setBusy(true);
-    const ack = (await emitAck(SOCKET_EVENTS.DEFEND_CARD, {
-      roomId,
-      attackCardId,
-      defenseCard,
-    })) as AckResult<void>;
+    await emitAckOrToast(SOCKET_EVENTS.DEFEND_CARD, { roomId, attackCardId, defenseCard });
     setBusy(false);
-    if (!ack.ok) setError(ack.error.message);
-    setSelectedCardId(null);
+    setSelection(NO_SELECTION);
   };
 
   const handleCardSelect = async (card: CardType) => {
@@ -154,11 +147,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
         return;
       }
       setBusy(true);
-      const ack = (await emitAck(SOCKET_EVENTS.REDIRECT_ATTACK, { roomId, card })) as AckResult<void>;
+      await emitAckOrToast(SOCKET_EVENTS.REDIRECT_ATTACK, { roomId, card });
       setBusy(false);
-      if (!ack.ok) setError(ack.error.message);
-      setRedirectMode(false);
-      setSelectedCardId(null);
+      setSelection(NO_SELECTION);
       return;
     }
 
@@ -174,7 +165,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
         await playDefense(candidates[0]!, card);
         return;
       }
-      setSelectedCardId(card.id === selectedCardId ? null : card.id);
+      setSelection((prev) =>
+        prev.kind === 'card' && prev.cardId === card.id ? NO_SELECTION : { kind: 'card', cardId: card.id },
+      );
       return;
     }
 
@@ -183,15 +176,13 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
       return;
     }
     setBusy(true);
-    const ack = (await emitAck(SOCKET_EVENTS.PLAY_CARD, { roomId, card })) as AckResult<void>;
+    await emitAckOrToast(SOCKET_EVENTS.PLAY_CARD, { roomId, card });
     setBusy(false);
-    if (!ack.ok) setError(ack.error.message);
-    setSelectedCardId(null);
+    setSelection(NO_SELECTION);
   };
 
   const handleAttackTap = async (attackCardId: string) => {
-    if (!isDefender || busy) return;
-    if (!selectedCardId) return;
+    if (!isDefender || busy || !selectedCardId) return;
     if (!candidateAttackIds.has(attackCardId)) return;
     const card = game.you.hand.find((c) => c.id === selectedCardId);
     if (!card) return;
@@ -201,17 +192,15 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const handleEndTurn = async () => {
     if (busy) return;
     setBusy(true);
-    const ack = (await emitAck(SOCKET_EVENTS.END_TURN, { roomId })) as AckResult<void>;
+    await emitAckOrToast(SOCKET_EVENTS.END_TURN, { roomId });
     setBusy(false);
-    if (!ack.ok) setError(ack.error.message);
   };
 
   const handleTake = async () => {
     if (busy) return;
     setBusy(true);
-    const ack = (await emitAck(SOCKET_EVENTS.TAKE_CARDS, { roomId })) as AckResult<void>;
+    await emitAckOrToast(SOCKET_EVENTS.TAKE_CARDS, { roomId });
     setBusy(false);
-    if (!ack.ok) setError(ack.error.message);
   };
 
   const allDefended = game.table.length > 0 && game.table.every((p) => p.defense !== null);
@@ -219,16 +208,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const canTake = isDefender && game.table.length > 0 && !allDefended;
 
   const role: RoleBannerKind = isAttacker ? 'attacker' : isDefender ? 'defender' : 'waiting';
-  const roleMessage =
-    role === 'attacker'
-      ? game.table.length === 0
-        ? 'Du greifst an  ·  Karte spielen'
-        : 'Du greifst an  ·  Nachlegen oder Bito'
-      : role === 'defender'
-        ? canRedirect
-          ? 'Du verteidigst  ·  Schlagen oder Weiterschieben'
-          : 'Du verteidigst  ·  Karte tippen'
-        : `${defender?.name ?? 'Gegner'} verteidigt`;
+  const roleMessage = buildRoleMessage(role, game.table.length === 0, canRedirect, defender?.name);
 
   const actions: ActionDef[] = [];
   if (canEndTurn) {
@@ -242,10 +222,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
       key: 'redirect',
       label: redirectMode ? 'Abbrechen' : '→ Weiterschieben',
       variant: redirectMode ? 'secondary-active' : 'secondary',
-      onPress: () => {
-        setRedirectMode((v) => !v);
-        setSelectedCardId(null);
-      },
+      onPress: () => setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' }),
     });
   }
 
@@ -272,7 +249,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
         />
       </View>
 
-      <ActionBar actions={actions} />
+      <ActionBar actions={actions} disabled={busy} />
 
       <PlayerHand
         hand={game.you.hand}
@@ -284,6 +261,25 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
       <Toast message={lastError} onDismiss={() => setError(null)} />
     </SafeAreaView>
   );
+};
+
+const buildRoleMessage = (
+  role: RoleBannerKind,
+  tableEmpty: boolean,
+  canRedirect: boolean,
+  defenderName: string | undefined,
+): string => {
+  if (role === 'attacker') {
+    return tableEmpty
+      ? 'Du greifst an  ·  Karte spielen'
+      : 'Du greifst an  ·  Nachlegen oder Bito';
+  }
+  if (role === 'defender') {
+    return canRedirect
+      ? 'Du verteidigst  ·  Schlagen oder Weiterschieben'
+      : 'Du verteidigst  ·  Karte tippen';
+  }
+  return `${defenderName ?? 'Gegner'} verteidigt`;
 };
 
 const styles = StyleSheet.create({

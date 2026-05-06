@@ -120,5 +120,6 @@ export const ERROR_CODES = {
   INVALID_MOVE: 'INVALID_MOVE',
   INVALID_PAYLOAD: 'INVALID_PAYLOAD',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  TIMEOUT: 'TIMEOUT',
 } as const;
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];

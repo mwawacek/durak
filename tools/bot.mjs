@@ -13,7 +13,7 @@
  *   node tools/bot.mjs --host http://192.168.1.23:3000
  */
 import { io } from '../node_modules/socket.io-client/build/esm/index.js';
-import { SOCKET_EVENTS, RANK_ORDER } from '../packages/shared/dist/index.js';
+import { SOCKET_EVENTS, RANK_ORDER, beats } from '../packages/shared/dist/index.js';
 
 const args = process.argv.slice(2);
 const flagIdx = args.findIndex((a) => a.startsWith('--'));
@@ -35,14 +35,6 @@ const ack = (socket, event, ...payload) =>
   });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
-const beatsCard = (attack, defense, trumpSuit) => {
-  if (defense.suit === attack.suit) {
-    return RANK_ORDER[defense.rank] > RANK_ORDER[attack.rank];
-  }
-  if (trumpSuit && defense.suit === trumpSuit && attack.suit !== trumpSuit) return true;
-  return false;
-};
-
 /** Pick an attack or defense move; returns the next Socket event + payload. */
 const pickMove = (game, myId, roomId) => {
   if (!game) return null;
@@ -57,7 +49,7 @@ const pickMove = (game, myId, roomId) => {
     if (!undefended) return null; // nothing to do
     // Try to defend cheapest-first (non-trump before trump)
     const candidates = game.you.hand
-      .filter((c) => beatsCard(undefended.attack, c, game.trumpSuit))
+      .filter((c) => beats(undefended.attack, c, game.trumpSuit))
       .sort((a, b) => {
         const aTrump = a.suit === game.trumpSuit ? 1 : 0;
         const bTrump = b.suit === game.trumpSuit ? 1 : 0;

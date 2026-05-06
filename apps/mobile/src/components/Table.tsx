@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type { AttackPair, Card as CardType, Suit } from '@durak/shared';
-import { Card } from './Card';
+import { type AttackPair, type Card as CardType, type Suit, SUIT_GLYPH, isRedSuit } from '@durak/shared';
+import { Card, CardSlot } from './Card';
 import { colors, elevation, radii, spacing } from '../theme/colors';
 
 interface Props {
@@ -13,15 +13,6 @@ interface Props {
   onAttackPress?: (attackCardId: string) => void;
   highlightedAttackIds?: Set<string>;
 }
-
-const SUIT_GLYPH: Record<Suit, string> = {
-  hearts: '♥',
-  diamonds: '♦',
-  clubs: '♣',
-  spades: '♠',
-};
-
-const isRed = (s: Suit) => s === 'hearts' || s === 'diamonds';
 
 export const Table: React.FC<Props> = ({
   table,
@@ -56,7 +47,7 @@ export const Table: React.FC<Props> = ({
             <Text
               style={[
                 styles.trumpBadgeGlyph,
-                { color: isRed(trumpSuit) ? colors.cardSuitRed : colors.text },
+                { color: isRedSuit(trumpSuit) ? colors.cardSuitRed : colors.text },
               ]}
             >
               {SUIT_GLYPH[trumpSuit]}
@@ -73,8 +64,8 @@ export const Table: React.FC<Props> = ({
       <View style={styles.tableArea}>
         {table.length === 0 ? (
           <View style={styles.emptyRow}>
-            <View style={styles.ghostCard} />
-            <View style={styles.ghostCard} />
+            <CardSlot size="md" />
+            <CardSlot size="md" />
             <Text style={styles.emptyCaption}>Tisch ist frei</Text>
           </View>
         ) : (
@@ -91,7 +82,7 @@ export const Table: React.FC<Props> = ({
                 {pair.defense ? (
                   <Card card={pair.defense} size="md" style={styles.defenseOffset} />
                 ) : (
-                  <View style={styles.defenseOutline} />
+                  <CardSlot size="md" style={styles.defenseSlotPos} />
                 )}
               </View>
             );
@@ -142,15 +133,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(3),
   },
   emptyRow: { flexDirection: 'row', alignItems: 'center', gap: spacing(3), opacity: 0.7 },
-  ghostCard: {
-    width: 64,
-    height: 92,
-    borderRadius: radii.card,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.feltEdge,
-    backgroundColor: 'transparent',
-  },
   emptyCaption: {
     color: colors.textDim,
     fontStyle: 'italic',
@@ -163,15 +145,5 @@ const styles = StyleSheet.create({
     left: 22,
     transform: [{ rotate: '12deg' }],
   },
-  defenseOutline: {
-    position: 'absolute',
-    top: 16,
-    left: 22,
-    width: 64,
-    height: 92,
-    borderRadius: radii.card,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.feltEdge,
-  },
+  defenseSlotPos: { position: 'absolute', top: 16, left: 22 },
 });

@@ -12,7 +12,6 @@ interface GameStoreState {
 
   setConnected: (connected: boolean) => void;
   setIdentity: (playerId: string, playerName: string) => void;
-  setRooms: (rooms: RoomPublic[]) => void;
   upsertRooms: (rooms: RoomPublic[]) => void;
   removeRoom: (roomId: string) => void;
   setCurrentRoom: (roomId: string | null) => void;
@@ -20,6 +19,20 @@ interface GameStoreState {
   setError: (error: string | null) => void;
   reset: () => void;
 }
+
+const roomsEqual = (a: RoomPublic[], b: RoomPublic[]): boolean => {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const x = a[i]!;
+    const y = b[i]!;
+    if (x.id !== y.id) return false;
+    if (x.status !== y.status) return false;
+    if (x.players.length !== y.players.length) return false;
+    if (x.ownerId !== y.ownerId) return false;
+    if (x.maxPlayers !== y.maxPlayers) return false;
+  }
+  return true;
+};
 
 export const useGameStore = create<GameStoreState>((set) => ({
   playerId: null,
@@ -32,14 +45,20 @@ export const useGameStore = create<GameStoreState>((set) => ({
 
   setConnected: (connected) => set({ connected }),
   setIdentity: (playerId, playerName) => set({ playerId, playerName }),
-  setRooms: (rooms) => set({ rooms }),
   upsertRooms: (incoming) =>
     set((state) => {
       const byId = new Map(state.rooms.map((r) => [r.id, r]));
       for (const r of incoming) byId.set(r.id, r);
-      return { rooms: [...byId.values()].sort((a, b) => b.createdAt - a.createdAt) };
+      const next = [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
+      if (roomsEqual(state.rooms, next)) return state;
+      return { rooms: next };
     }),
-  removeRoom: (roomId) => set((s) => ({ rooms: s.rooms.filter((r) => r.id !== roomId) })),
+  removeRoom: (roomId) =>
+    set((s) => {
+      const next = s.rooms.filter((r) => r.id !== roomId);
+      if (next.length === s.rooms.length) return s;
+      return { rooms: next };
+    }),
   setCurrentRoom: (roomId) => set({ currentRoomId: roomId }),
   setGame: (game) => set({ game }),
   setError: (error) => set({ lastError: error }),

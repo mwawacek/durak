@@ -11,6 +11,11 @@ interface Props {
 export const Toast: React.FC<Props> = ({ message, onDismiss, durationMs = 3000 }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const [visibleMessage, setVisibleMessage] = useState<string | null>(null);
+  const onDismissRef = useRef(onDismiss);
+
+  useEffect(() => {
+    onDismissRef.current = onDismiss;
+  }, [onDismiss]);
 
   useEffect(() => {
     if (!message) return;
@@ -27,11 +32,11 @@ export const Toast: React.FC<Props> = ({ message, onDismiss, durationMs = 3000 }
         useNativeDriver: true,
       }).start(() => {
         setVisibleMessage(null);
-        onDismiss();
+        onDismissRef.current();
       });
     }, durationMs);
     return () => clearTimeout(t);
-  }, [message, durationMs, onDismiss, opacity]);
+  }, [message, durationMs, opacity]);
 
   if (!visibleMessage) return null;
 

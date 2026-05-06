@@ -32,3 +32,12 @@ export const cardId = (suit: Suit, rank: Rank): string => `${rank}-${suit}`;
 
 export const DECK_SIZE = SUITS.length * RANKS.length;
 export const STARTING_HAND_SIZE = 6;
+
+export const SUIT_GLYPH: Record<Suit, '♥' | '♦' | '♣' | '♠'> = {
+  hearts: '♥',
+  diamonds: '♦',
+  clubs: '♣',
+  spades: '♠',
+};
+
+export const isRedSuit = (s: Suit): boolean => s === 'hearts' || s === 'diamonds';

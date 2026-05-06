@@ -5,6 +5,7 @@ import {
   GameStateInternal,
   projectPrivate,
   projectPublic,
+  toPrivatePlayer,
 } from './game.types';
 import {
   endTurn,
@@ -97,6 +98,18 @@ export class GameService {
   viewFor(roomId: string, playerId: string): GameStatePrivate | null {
     const s = this.games.get(roomId);
     return s ? projectPrivate(s, playerId) : null;
+  }
+
+  /** All per-player projections in one pass, sharing the public view across players. */
+  viewsFor(roomId: string): Map<string, GameStatePrivate> | null {
+    const s = this.games.get(roomId);
+    if (!s) return null;
+    const publicView = projectPublic(s);
+    const result = new Map<string, GameStatePrivate>();
+    for (const p of s.players) {
+      result.set(p.id, { ...publicView, you: toPrivatePlayer(p) });
+    }
+    return result;
   }
 
   /** Used to derive per-player broadcasts. */

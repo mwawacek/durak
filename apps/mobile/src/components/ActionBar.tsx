@@ -11,9 +11,10 @@ export interface ActionDef {
 
 interface Props {
   actions: ActionDef[];
+  disabled?: boolean;
 }
 
-export const ActionBar: React.FC<Props> = ({ actions }) => {
+export const ActionBar: React.FC<Props> = ({ actions, disabled }) => {
   if (actions.length === 0) {
     return <View style={styles.placeholder} />;
   }
@@ -22,9 +23,10 @@ export const ActionBar: React.FC<Props> = ({ actions }) => {
       {actions.map((a) => (
         <TouchableOpacity
           key={a.key}
-          style={[styles.btn, VARIANT_STYLES[a.variant]]}
+          style={[styles.btn, VARIANT_STYLES[a.variant], disabled && styles.disabled]}
           onPress={a.onPress}
           activeOpacity={0.8}
+          disabled={disabled}
         >
           <Text style={[styles.btnText, VARIANT_TEXT[a.variant]]}>{a.label}</Text>
         </TouchableOpacity>
@@ -56,6 +58,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing(2),
   },
   placeholder: { height: spacing(2) },
+  disabled: { opacity: 0.5 },
   btn: {
     flex: 1,
     minHeight: 48,

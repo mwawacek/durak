@@ -49,6 +49,10 @@ export class PlayerService {
     return p ? { id: p.id, name: p.name } : null;
   }
 
+  getSocketId(playerId: string): string | null {
+    return this.onlinePlayers.get(playerId)?.socketId ?? null;
+  }
+
   updateSocket(playerId: string, socketId: string): void {
     const p = this.onlinePlayers.get(playerId);
     if (p) {
@@ -77,9 +81,16 @@ export class PlayerService {
   async recordGameResult(playerId: string, won: boolean, wasDurak: boolean): Promise<void> {
     if (!this.playerRepo || playerId.startsWith('guest-')) return;
     try {
-      await this.playerRepo.increment({ id: playerId }, 'gamesPlayed', 1);
-      if (won) await this.playerRepo.increment({ id: playerId }, 'gamesWon', 1);
-      if (wasDurak) await this.playerRepo.increment({ id: playerId }, 'timesDurak', 1);
+      await this.playerRepo
+        .createQueryBuilder()
+        .update(PlayerEntity)
+        .set({
+          gamesPlayed: () => 'games_played + 1',
+          gamesWon: () => `games_won + ${won ? 1 : 0}`,
+          timesDurak: () => `times_durak + ${wasDurak ? 1 : 0}`,
+        })
+        .where('id = :id', { id: playerId })
+        .execute();
     } catch (err) {
       this.logger.warn(`Could not persist game result: ${(err as Error).message}`);
     }

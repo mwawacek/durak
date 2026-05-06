@@ -1,10 +1,12 @@
 import {
   Card,
-  RANK_ORDER,
   STARTING_HAND_SIZE,
-  Suit,
   ERROR_CODES,
   ErrorCode,
+  GamePhase,
+  beats,
+  ranksOnTable,
+  tableFullyDefended,
 } from '@durak/shared';
 import { GameStateInternal, PlayerInternal } from './game.types';
 
@@ -13,12 +15,6 @@ export class GameRuleError extends Error {
     super(message);
   }
 }
-
-/**
- * Pure rule functions. Each mutator returns a *new* state object (shallow copy)
- * to keep reasoning straightforward. Hot paths use in-place array mutation
- * only on freshly cloned arrays.
- */
 
 const MAX_TABLE_PAIRS = 6;
 
@@ -72,31 +68,30 @@ const neighborAttackers = (s: GameStateInternal): Set<number> => {
   return set;
 };
 
-const beats = (attack: Card, defense: Card, trumpSuit: Suit | null): boolean => {
-  if (defense.suit === attack.suit) {
-    return RANK_ORDER[defense.rank] > RANK_ORDER[attack.rank];
+type Role = 'attacker' | 'defender' | 'any-attacker';
+
+const requireTurn = (
+  state: GameStateInternal,
+  playerId: string,
+  role: Role,
+  allowedPhases: GamePhase[],
+): { s: GameStateInternal; playerIdx: number; me: PlayerInternal } => {
+  const s = cloneState(state);
+  if (!allowedPhases.includes(s.phase)) {
+    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, `Wrong phase: ${s.phase}`);
   }
-  if (trumpSuit && defense.suit === trumpSuit && attack.suit !== trumpSuit) {
-    return true;
+  const playerIdx = findPlayerIdx(s, playerId);
+  if (role === 'attacker' && playerIdx !== s.attackerIdx) {
+    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only main attacker');
   }
-  return false;
+  if (role === 'defender' && playerIdx !== s.defenderIdx) {
+    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only defender');
+  }
+  if (role === 'any-attacker' && playerIdx === s.defenderIdx) {
+    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Defender cannot attack');
+  }
+  return { s, playerIdx, me: s.players[playerIdx]! };
 };
-
-const ranksOnTable = (s: GameStateInternal): Set<string> => {
-  const ranks = new Set<string>();
-  for (const pair of s.table) {
-    ranks.add(pair.attack.rank);
-    if (pair.defense) ranks.add(pair.defense.rank);
-  }
-  return ranks;
-};
-
-const tableFullyDefended = (s: GameStateInternal): boolean =>
-  s.table.length > 0 && s.table.every((p) => p.defense !== null);
-
-// ─────────────────────────────────────────────────────────────────────────
-// Public engine operations
-// ─────────────────────────────────────────────────────────────────────────
 
 export interface InitArgs {
   roomId: string;
@@ -118,7 +113,6 @@ export const initGame = ({ roomId, players, deck, dealerIdx, now }: InitArgs): G
 
   const deckCopy = [...deck];
 
-  // Deal 6 cards each.
   for (let i = 0; i < STARTING_HAND_SIZE; i++) {
     for (const player of internalPlayers) {
       const card = deckCopy.shift();
@@ -127,19 +121,15 @@ export const initGame = ({ roomId, players, deck, dealerIdx, now }: InitArgs): G
     }
   }
 
-  // Trump card — take the bottom of the deck, revealed, still in play.
+  // Trump card stays at the bottom of the deck — visible, still drawable.
   const trumpCard = deckCopy.length > 0 ? deckCopy[deckCopy.length - 1]! : null;
   const trumpSuit = trumpCard ? trumpCard.suit : null;
 
-  // First attacker:
-  //   1. Player holding the 8 of Hearts
-  //   2. Fallback: player after the dealer
+  // First attacker = holder of 8 of Hearts; fallback = player after dealer.
   let attackerIdx = internalPlayers.findIndex((p) =>
     p.hand.some((c) => c.suit === 'hearts' && c.rank === '8'),
   );
-  if (attackerIdx < 0) {
-    attackerIdx = (dealerIdx + 1) % internalPlayers.length;
-  }
+  if (attackerIdx < 0) attackerIdx = (dealerIdx + 1) % internalPlayers.length;
   const defenderIdx = (attackerIdx + 1) % internalPlayers.length;
 
   return {
@@ -166,29 +156,17 @@ export const playAttack = (
   playerId: string,
   card: Card,
 ): GameStateInternal => {
-  const s = cloneState(state);
-  if (s.phase !== 'attacking' && s.phase !== 'defending') {
-    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Not attack phase');
-  }
-  const playerIdx = findPlayerIdx(s, playerId);
+  const { s, playerIdx, me } = requireTurn(state, playerId, 'any-attacker', ['attacking', 'defending']);
   const defender = s.players[s.defenderIdx]!;
 
-  if (playerIdx === s.defenderIdx) {
-    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Defender cannot attack');
-  }
-
-  // Table capacity: max 6 pairs, and never more than defender's current hand.
-  const maxAllowed = Math.min(MAX_TABLE_PAIRS, defender.hand.length + s.table.filter((p) => !p.defense).length);
   const undefendedCount = s.table.filter((p) => !p.defense).length;
   if (undefendedCount >= defender.hand.length) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Defender has no hand capacity');
   }
-  if (s.table.length >= maxAllowed) {
+  if (s.table.length >= MAX_TABLE_PAIRS) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Table is full');
   }
 
-  // First attack in a round must be by main attacker. Further attacks allowed only
-  // by the main attacker plus the defender's two active neighbours.
   if (s.table.length === 0 && playerIdx !== s.attackerIdx) {
     throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only main attacker opens a round');
   }
@@ -196,15 +174,10 @@ export const playAttack = (
     throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only the attacker or the defender’s neighbours may pile on');
   }
 
-  // Pile-on rule: subsequent attack cards must match a rank already on the table.
-  if (s.table.length > 0) {
-    const allowedRanks = ranksOnTable(s);
-    if (!allowedRanks.has(card.rank)) {
-      throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Rank not on table');
-    }
+  if (s.table.length > 0 && !ranksOnTable(s.table).has(card.rank)) {
+    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Rank not on table');
   }
 
-  const me = s.players[playerIdx]!;
   removeFromHand(me, card);
   s.table.push({ attack: card, defense: null });
   s.phase = 'defending';
@@ -221,14 +194,7 @@ export const playDefense = (
   attackCardId: string,
   defenseCard: Card,
 ): GameStateInternal => {
-  const s = cloneState(state);
-  if (s.phase !== 'defending' && s.phase !== 'attacking') {
-    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Not defense phase');
-  }
-  const playerIdx = findPlayerIdx(s, playerId);
-  if (playerIdx !== s.defenderIdx) {
-    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only defender can defend');
-  }
+  const { s, me } = requireTurn(state, playerId, 'defender', ['defending', 'attacking']);
 
   const pair = s.table.find((p) => p.attack.id === attackCardId);
   if (!pair) throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Attack card not on table');
@@ -238,10 +204,9 @@ export const playDefense = (
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Defense does not beat attack');
   }
 
-  const me = s.players[playerIdx]!;
   removeFromHand(me, defenseCard);
   pair.defense = defenseCard;
-  s.phase = tableFullyDefended(s) ? 'attacking' : 'defending';
+  s.phase = tableFullyDefended(s.table) ? 'attacking' : 'defending';
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
@@ -259,14 +224,8 @@ export const redirectAttack = (
   playerId: string,
   card: Card,
 ): GameStateInternal => {
-  const s = cloneState(state);
-  if (s.phase !== 'defending') {
-    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Pass-on only while defending');
-  }
-  const playerIdx = findPlayerIdx(s, playerId);
-  if (playerIdx !== s.defenderIdx) {
-    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only defender can redirect');
-  }
+  const { s, me } = requireTurn(state, playerId, 'defender', ['defending']);
+
   if (s.table.length === 0) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Nothing to redirect');
   }
@@ -281,15 +240,12 @@ export const redirectAttack = (
   if (card.rank !== attackRank) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Card rank must match table');
   }
-
-  const me = s.players[playerIdx]!;
   // Rule: cannot pass on with your last card — you must keep something to finish with.
   if (me.hand.length <= 1) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Cannot pass on with your last card');
   }
 
   const newDefenderIdx = nextActiveIdx(s, s.defenderIdx);
-  // New defender needs enough hand capacity for all attacks (including the new one).
   const newDefender = s.players[newDefenderIdx]!;
   const attacksAfter = s.table.length + 1;
   if (newDefender.hand.length < attacksAfter) {
@@ -302,7 +258,6 @@ export const redirectAttack = (
   removeFromHand(me, card);
   s.table.push({ attack: card, defense: null });
 
-  // Old defender becomes the new main attacker; turn shifts to the next player.
   s.attackerIdx = s.defenderIdx;
   s.defenderIdx = newDefenderIdx;
   s.phase = 'defending';
@@ -313,46 +268,31 @@ export const redirectAttack = (
   return s;
 };
 
-/**
- * Attackers call "bito" to end the round successfully (requires all attacks defended).
- * Any non-defender active player can call it; we require at least the main attacker
- * to confirm, plus each piling-on player is assumed to confirm by not attacking further.
- * Simplified: main attacker's endTurn suffices.
- */
 export const endTurn = (state: GameStateInternal, playerId: string): GameStateInternal => {
-  const s = cloneState(state);
-  const playerIdx = findPlayerIdx(s, playerId);
-  if (playerIdx !== s.attackerIdx) {
-    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only main attacker can end turn');
-  }
+  const { s } = requireTurn(state, playerId, 'attacker', ['attacking', 'defending']);
+
   if (s.table.length === 0) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Nothing to end');
   }
-  if (!tableFullyDefended(s)) {
+  if (!tableFullyDefended(s.table)) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Table not fully defended');
   }
 
-  // Bito: all cards to discard.
   for (const pair of s.table) {
     s.discard.push(pair.attack);
     if (pair.defense) s.discard.push(pair.defense);
   }
   s.table = [];
 
-  // Defender successfully defended → next attacker = defender.
   refillHands(s, s.attackerIdx);
   rotateAfterSuccess(s);
   checkFinished(s);
   return s;
 };
 
-/** Defender surrenders — picks up the table. Turn rotates past the defender. */
 export const takeCards = (state: GameStateInternal, playerId: string): GameStateInternal => {
-  const s = cloneState(state);
-  const playerIdx = findPlayerIdx(s, playerId);
-  if (playerIdx !== s.defenderIdx) {
-    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Only defender can take');
-  }
+  const { s } = requireTurn(state, playerId, 'defender', ['attacking', 'defending']);
+
   if (s.table.length === 0) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Table empty');
   }
@@ -370,10 +310,6 @@ export const takeCards = (state: GameStateInternal, playerId: string): GameState
   return s;
 };
 
-// ─────────────────────────────────────────────────────────────────────────
-// Internal helpers (mutate on the cloned state)
-// ─────────────────────────────────────────────────────────────────────────
-
 const refillHands = (s: GameStateInternal, firstIdx: number): void => {
   // Order: attacker first, then clockwise, defender last.
   const n = s.players.length;
@@ -388,29 +324,20 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
     const p = s.players[idx]!;
     if (p.hasFinished) continue;
     while (p.hand.length < STARTING_HAND_SIZE && s.deck.length > 0) {
-      // Last card drawn is the trump card (bottom of deck remains trump until taken).
       const card = s.deck.shift()!;
       p.hand.push(card);
     }
   }
 
-  // Mark players as finished if deck empty and hand empty.
   for (const p of s.players) {
     if (!p.hasFinished && s.deck.length === 0 && p.hand.length === 0) {
       p.hasFinished = true;
       p.finishedAt = Date.now();
     }
   }
-
-  // Trump card was at bottom — if deck empties we lose the trump reference card from deckCount,
-  // but trumpSuit persists for the rest of the game.
-  if (s.deck.length === 0) {
-    // trumpCard remains for UI reference until game ends
-  }
 };
 
 const rotateAfterSuccess = (s: GameStateInternal): void => {
-  // Defender defended successfully → becomes next attacker.
   const newAttacker = s.defenderIdx;
   if (s.players[newAttacker]!.hasFinished) {
     s.attackerIdx = nextActiveIdx(s, newAttacker);
@@ -423,7 +350,6 @@ const rotateAfterSuccess = (s: GameStateInternal): void => {
 };
 
 const rotateAfterFailure = (s: GameStateInternal): void => {
-  // Defender took cards → is skipped, next attacker is player after defender.
   s.attackerIdx = nextActiveIdx(s, s.defenderIdx);
   s.defenderIdx = nextActiveIdx(s, s.attackerIdx);
   s.phase = 'attacking';
@@ -437,10 +363,6 @@ const checkFinished = (s: GameStateInternal): void => {
     s.loserId = activePlayers.length === 1 ? activePlayers[0]!.id : null;
   }
 };
-
-// ─────────────────────────────────────────────────────────────────────────
-// Disconnect / reconnect (Schritt 13)
-// ─────────────────────────────────────────────────────────────────────────
 
 export const markDisconnected = (state: GameStateInternal, playerId: string): GameStateInternal => {
   const s = cloneState(state);

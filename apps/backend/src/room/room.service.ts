@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { MAX_PLAYERS, MIN_PLAYERS, RoomPublic, RoomStatus, ERROR_CODES } from '@durak/shared';
+import { MAX_PLAYERS, MIN_PLAYERS, RoomPublic, RoomStatus, ERROR_CODES, ErrorCode } from '@durak/shared';
 import { randomUUID } from 'crypto';
 
 interface RoomMember {
@@ -19,7 +19,7 @@ interface RoomInternal {
 }
 
 export class RoomError extends Error {
-  constructor(public readonly code: string, message: string) {
+  constructor(public readonly code: ErrorCode, message: string) {
     super(message);
   }
 }

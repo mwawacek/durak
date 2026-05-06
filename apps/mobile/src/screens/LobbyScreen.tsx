@@ -13,12 +13,11 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import { colors, spacing, radii } from '../theme/colors';
 import { useGameStore } from '../store/gameStore';
-import { emitAck } from '../services/socket';
+import { emitAckOrToast } from '../services/socket';
 import {
   SOCKET_EVENTS,
   MIN_PLAYERS,
   MAX_PLAYERS,
-  type AckResult,
   type CreateRoomResult,
   type JoinRoomResult,
   type RoomPublic,
@@ -48,38 +47,28 @@ export const LobbyScreen: React.FC<Props> = ({ navigation }) => {
   }, [rooms, playerId, navigation, setCurrentRoom]);
 
   const handleCreate = async () => {
-    const ack = (await emitAck(SOCKET_EVENTS.CREATE_ROOM, {
+    const data = await emitAckOrToast<CreateRoomResult>(SOCKET_EVENTS.CREATE_ROOM, {
       name: roomName.trim() || `${playerName}'s Tisch`,
       maxPlayers,
-    })) as AckResult<CreateRoomResult>;
-    if (!ack.ok) {
-      useGameStore.getState().setError(ack.error.message);
-      return;
-    }
-    setCurrentRoom(ack.data.room.id);
+    });
+    if (!data) return;
+    setCurrentRoom(data.room.id);
     setCreating(false);
     setRoomName('');
-    // Stay in lobby until host taps Start.
   };
 
   const handleJoin = async (room: RoomPublic) => {
     if (joinPending) return;
     setJoinPending(true);
-    const ack = (await emitAck(SOCKET_EVENTS.JOIN_ROOM, { roomId: room.id })) as AckResult<JoinRoomResult>;
+    const data = await emitAckOrToast<JoinRoomResult>(SOCKET_EVENTS.JOIN_ROOM, { roomId: room.id });
     setJoinPending(false);
-    if (!ack.ok) {
-      useGameStore.getState().setError(ack.error.message);
-      return;
-    }
+    if (!data) return;
     setCurrentRoom(room.id);
   };
 
   const handleStart = async (room: RoomPublic) => {
-    const ack = (await emitAck(SOCKET_EVENTS.START_GAME, { roomId: room.id })) as AckResult<void>;
-    if (!ack.ok) {
-      useGameStore.getState().setError(ack.error.message);
-      return;
-    }
+    const data = await emitAckOrToast<void>(SOCKET_EVENTS.START_GAME, { roomId: room.id });
+    if (data === null) return;
     navigation.replace('Game', { roomId: room.id });
   };
 
