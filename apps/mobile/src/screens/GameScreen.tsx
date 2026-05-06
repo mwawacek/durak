@@ -240,21 +240,21 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
 
   const yourBannerLine = isAttacker
     ? game.table.length === 0
-      ? 'Your attack'
-      : 'Your move'
+      ? 'Du greifst an'
+      : 'Dein Zug'
     : isDefender
       ? canRedirect
-        ? 'Defend or pass on'
-        : 'Your defense'
-      : `${defender?.name ?? 'Opponent'} defends`;
+        ? 'Verteidigen oder Weiterschieben'
+        : 'Du verteidigst'
+      : `${defender?.name ?? 'Gegner'} verteidigt`;
 
   const yourBannerSub = isAttacker
-    ? 'Ваш ход · play a card'
+    ? 'Karte spielen'
     : isDefender
       ? canRedirect
-        ? 'Бить или Перевести'
-        : 'Ваша защита · tap a card'
-      : 'Ход противника';
+        ? 'Karte tippen zum Schlagen'
+        : 'Karte tippen'
+      : 'Bitte warten';
 
   return (
     <View style={styles.root}>
@@ -325,7 +325,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
               gap: 4,
             }}
           >
-            <Text style={styles.discardLabel}>Beaten · Бито</Text>
+            <Text style={styles.discardLabel}>Abwurf</Text>
             <View style={styles.discardBadge}>
               <Text style={styles.discardCount}>{game.discardCount}</Text>
             </View>
@@ -364,8 +364,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
           {canEndTurn ? (
             <BrassButton
               variant="primary"
-              label="Done"
-              sub="Бито"
+              label="Fertig"
               onPress={handleEndTurn}
               disabled={busy}
             />
@@ -373,8 +372,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
           {canTake ? (
             <BrassButton
               variant="danger"
-              label="Take"
-              sub="Взять"
+              label="Nehmen"
               badge={undefendedCount > 0 ? `+${undefendedCount}` : undefined}
               onPress={handleTake}
               disabled={busy}
@@ -383,8 +381,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
           {canRedirect ? (
             <BrassButton
               variant={redirectMode ? 'secondary-active' : 'secondary'}
-              label={redirectMode ? 'Cancel' : 'Pass on'}
-              sub={redirectMode ? 'Отмена' : 'Перевести'}
+              label={redirectMode ? 'Abbrechen' : 'Weiterschieben'}
               onPress={() => setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' })}
               disabled={busy}
             />
@@ -404,11 +401,11 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
 
         {/* You — nameplate bottom-left */}
         <View style={styles.youPlate}>
-          <RingedAvatar initials={(playerName?.[0] ?? 'V').toUpperCase()} active />
+          <RingedAvatar initials={(playerName?.[0] ?? 'D').toUpperCase()} active />
           <View>
-            <Text style={styles.youName}>You</Text>
+            <Text style={styles.youName}>Du</Text>
             <Text style={styles.youRole}>
-              {isDefender ? 'DEFENDING' : isAttacker ? 'ATTACKING' : 'WAITING'}
+              {isDefender ? 'VERTEIDIGUNG' : isAttacker ? 'ANGRIFF' : 'WARTEN'}
             </Text>
           </View>
         </View>

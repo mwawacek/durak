@@ -26,7 +26,7 @@ const SIZE = {
   lg: 80,
 } as const;
 
-const CYRILLIC: Record<string, string> = { J: 'В', Q: 'Д', K: 'К', A: 'Т' };
+const FACE_MONOGRAM: Record<string, string> = { J: 'B', Q: 'D', K: 'K', A: 'A' };
 const FACE_BG: Record<string, string> = {
   J: colors.faceJ,
   Q: colors.faceQ,
@@ -191,7 +191,7 @@ const CardFaceVisual: React.FC<{ w: number; rank: Rank; suit: Suit }> = ({ w, ra
 const FaceMedallion: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, rank, w }) => {
   const suitColor = isRedSuit(suit) ? colors.cardSuitRed : colors.cardSuitBlack;
   const portraitBg = FACE_BG[rank] ?? colors.faceK;
-  const cyr = CYRILLIC[rank] ?? rank;
+  const monogram = FACE_MONOGRAM[rank] ?? rank;
   const pipColor = isRedSuit(suit) ? '#ff8a82' : colors.goldLight;
   return (
     <View
@@ -252,7 +252,7 @@ const FaceMedallion: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, 
             lineHeight: w * 0.42,
           }}
         >
-          {cyr}
+          {monogram}
         </Text>
         <Text
           style={{

@@ -24,7 +24,7 @@ export const TrumpReservoir: React.FC<Props> = ({
   const stackHeight = cardW * 1.7;
   return (
     <View style={[styles.wrap, style]}>
-      <Text style={styles.label}>Trump · Козырь</Text>
+      <Text style={styles.label}>Trumpf</Text>
       <View style={{ width: stackWidth, height: stackHeight, position: 'relative' }}>
         {/* gold halo */}
         <View
