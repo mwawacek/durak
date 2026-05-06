@@ -1,0 +1,110 @@
+import { useMemo } from 'react';
+import {
+  beats,
+  canRedirectWith,
+  type GameStatePrivate,
+  type PlayerPublic,
+} from '@durak/shared';
+
+export interface GameRules {
+  isAttacker: boolean;
+  isDefender: boolean;
+  defender: PlayerPublic | undefined;
+  canRedirect: boolean;
+  /** Card ids in your hand that are legally playable in the current context. */
+  playableCardIds: Set<string>;
+  /** Attacks (by id) that the currently selected hand card can defend against. Empty if no card selected. */
+  candidateAttackIds: Set<string>;
+  allDefended: boolean;
+  undefendedCount: number;
+}
+
+interface Args {
+  game: GameStatePrivate;
+  playerId: string | null;
+  selectedCardId: string | null;
+  redirectMode: boolean;
+}
+
+/**
+ * All client-side derivations of game state for the active player.
+ * Used by GameScreen to drive button enablement, banner text, and card highlights.
+ */
+export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: Args): GameRules => {
+  const isAttacker = game.attackerId === playerId;
+  const isDefender = game.defenderId === playerId;
+  const defender = game.players.find((p) => p.id === game.defenderId);
+
+  const canRedirect = useMemo<boolean>(() => {
+    if (!isDefender) return false;
+    return canRedirectWith(game.you.hand, game.table);
+  }, [game, isDefender]);
+
+  const playableCardIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+
+    if (isDefender && redirectMode) {
+      const firstRank = game.table[0]?.attack.rank;
+      if (!firstRank) return ids;
+      for (const card of game.you.hand) if (card.rank === firstRank) ids.add(card.id);
+      return ids;
+    }
+
+    if (isDefender) {
+      for (const card of game.you.hand) {
+        for (const pair of game.table) {
+          if (pair.defense) continue;
+          if (beats(pair.attack, card, game.trumpSuit)) {
+            ids.add(card.id);
+            break;
+          }
+        }
+      }
+      return ids;
+    }
+
+    if (isAttacker || (!isDefender && game.table.length > 0)) {
+      if (game.table.length === 0 && isAttacker) {
+        for (const c of game.you.hand) ids.add(c.id);
+        return ids;
+      }
+      const tableRanks = new Set<string>();
+      for (const pair of game.table) {
+        tableRanks.add(pair.attack.rank);
+        if (pair.defense) tableRanks.add(pair.defense.rank);
+      }
+      const undefendedCount = game.table.filter((p) => !p.defense).length;
+      const defenderCapacity = (defender?.handCount ?? 0) > undefendedCount;
+      if (!defenderCapacity) return ids;
+      for (const c of game.you.hand) if (tableRanks.has(c.rank)) ids.add(c.id);
+    }
+
+    return ids;
+  }, [game, isAttacker, isDefender, defender, redirectMode]);
+
+  const candidateAttackIds = useMemo<Set<string>>(() => {
+    const ids = new Set<string>();
+    if (!isDefender || !selectedCardId || redirectMode) return ids;
+    const card = game.you.hand.find((c) => c.id === selectedCardId);
+    if (!card) return ids;
+    for (const pair of game.table) {
+      if (pair.defense) continue;
+      if (beats(pair.attack, card, game.trumpSuit)) ids.add(pair.attack.id);
+    }
+    return ids;
+  }, [game, isDefender, selectedCardId, redirectMode]);
+
+  const allDefended = game.table.length > 0 && game.table.every((p) => p.defense !== null);
+  const undefendedCount = game.table.filter((p) => !p.defense).length;
+
+  return {
+    isAttacker,
+    isDefender,
+    defender,
+    canRedirect,
+    playableCardIds,
+    candidateAttackIds,
+    allDefended,
+    undefendedCount,
+  };
+};

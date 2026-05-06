@@ -9,6 +9,9 @@ interface Props {
   size?: number;
 }
 
+const ACTIVE_COLORS = [colors.goldHighlight, colors.goldDark] as const;
+const IDLE_COLORS = [colors.avatarDarkTop, colors.avatarDarkBottom] as const;
+
 /** Gold-rimmed initial avatar; gold ring when active. */
 export const RingedAvatar: React.FC<Props> = ({ initials, active = false, size = 28 }) => {
   return (
@@ -20,12 +23,12 @@ export const RingedAvatar: React.FC<Props> = ({ initials, active = false, size =
           height: size,
           borderRadius: size / 2,
           borderWidth: active ? 1.5 : 1,
-          borderColor: active ? colors.goldLight : 'rgba(212,165,72,0.35)',
+          borderColor: active ? colors.goldLight : colors.goldFaint,
         },
       ]}
     >
       <LinearGradient
-        colors={active ? [colors.goldHighlight, '#b88a3a'] : ['#4a3520', '#2a1f12']}
+        colors={active ? ACTIVE_COLORS : IDLE_COLORS}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[
@@ -39,7 +42,7 @@ export const RingedAvatar: React.FC<Props> = ({ initials, active = false, size =
       >
         <Text
           style={{
-            color: active ? '#1a0905' : colors.goldLight,
+            color: active ? colors.inkBlack : colors.goldLight,
             fontFamily: fonts.serif,
             fontSize: size * 0.42,
             fontWeight: '800',
@@ -53,12 +56,6 @@ export const RingedAvatar: React.FC<Props> = ({ initials, active = false, size =
 };
 
 const styles = StyleSheet.create({
-  wrap: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  face: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  wrap: { alignItems: 'center', justifyContent: 'center' },
+  face: { alignItems: 'center', justifyContent: 'center' },
 });

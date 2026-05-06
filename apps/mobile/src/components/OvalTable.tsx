@@ -1,11 +1,9 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { colors } from '../theme/colors';
+import { colors, radii } from '../theme/colors';
 
 interface Props {
-  width: number;
-  height: number;
   cx: number;
   cy: number;
   rx: number;
@@ -15,11 +13,11 @@ interface Props {
 /**
  * Oval mahogany table: outer wood lip, double gold rail, dark forest felt center.
  * Positions are absolute within the parent. cx/cy = ellipse center, rx/ry = radii.
+ * Memoized — only re-renders when geometry changes (i.e. screen size).
  */
-export const OvalTable: React.FC<Props> = ({ cx, cy, rx, ry }) => {
+const OvalTableImpl: React.FC<Props> = ({ cx, cy, rx, ry }) => {
   return (
     <>
-      {/* Outer wood lip */}
       <LinearGradient
         colors={[colors.woodHighlight, colors.woodMid, colors.woodDark]}
         style={{
@@ -28,10 +26,9 @@ export const OvalTable: React.FC<Props> = ({ cx, cy, rx, ry }) => {
           top: cy - ry,
           width: rx * 2,
           height: ry * 2,
-          borderRadius: 9999,
+          borderRadius: radii.oval,
         }}
       />
-      {/* Outer gold rail */}
       <View
         style={{
           position: 'absolute',
@@ -39,12 +36,11 @@ export const OvalTable: React.FC<Props> = ({ cx, cy, rx, ry }) => {
           top: cy - ry + 8,
           width: (rx - 8) * 2,
           height: (ry - 8) * 2,
-          borderRadius: 9999,
+          borderRadius: radii.oval,
           borderWidth: 1.2,
-          borderColor: 'rgba(212,165,72,0.75)',
+          borderColor: colors.goldRail,
         }}
       />
-      {/* Inner thin gold rail */}
       <View
         style={{
           position: 'absolute',
@@ -52,12 +48,11 @@ export const OvalTable: React.FC<Props> = ({ cx, cy, rx, ry }) => {
           top: cy - ry + 14,
           width: (rx - 14) * 2,
           height: (ry - 14) * 2,
-          borderRadius: 9999,
+          borderRadius: radii.oval,
           borderWidth: 0.5,
-          borderColor: 'rgba(212,165,72,0.45)',
+          borderColor: colors.goldRailFaint,
         }}
       />
-      {/* Felt center */}
       <LinearGradient
         colors={[colors.felt, colors.feltMid, colors.feltDark]}
         start={{ x: 0.5, y: 0 }}
@@ -68,10 +63,9 @@ export const OvalTable: React.FC<Props> = ({ cx, cy, rx, ry }) => {
           top: cy - ry + 18,
           width: (rx - 18) * 2,
           height: (ry - 18) * 2,
-          borderRadius: 9999,
+          borderRadius: radii.oval,
         }}
       />
-      {/* Felt inner shadow ring (subtle) */}
       <View
         style={{
           position: 'absolute',
@@ -79,11 +73,13 @@ export const OvalTable: React.FC<Props> = ({ cx, cy, rx, ry }) => {
           top: cy - ry + 18,
           width: (rx - 18) * 2,
           height: (ry - 18) * 2,
-          borderRadius: 9999,
+          borderRadius: radii.oval,
           borderWidth: 1,
-          borderColor: 'rgba(0,0,0,0.45)',
+          borderColor: colors.feltShadow,
         }}
       />
     </>
   );
 };
+
+export const OvalTable = memo(OvalTableImpl);

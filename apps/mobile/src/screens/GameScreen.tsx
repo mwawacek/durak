@@ -1,27 +1,23 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Dimensions, StyleSheet, Text, View } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
-import {
-  SOCKET_EVENTS,
-  beats,
-  canRedirectWith,
-  type Card as CardType,
-  type PlayerPublic,
-} from '@durak/shared';
+import { SOCKET_EVENTS, beats, type Card as CardType } from '@durak/shared';
 import { useGameStore } from '../store/gameStore';
 import { emitAckOrToast } from '../services/socket';
 import { OvalTable } from '../components/OvalTable';
-import { PlayerSeat } from '../components/PlayerSeat';
+import { PlayerSeat, type SeatRole } from '../components/PlayerSeat';
 import { TrumpReservoir } from '../components/TrumpReservoir';
 import { BattleField } from '../components/BattleField';
 import { BrassButton } from '../components/BrassButton';
 import { PlayerHand } from '../components/PlayerHand';
 import { RingedAvatar } from '../components/RingedAvatar';
 import { Toast } from '../components/Toast';
-import { colors, fonts } from '../theme/colors';
+import { colors, fonts, presets } from '../theme/colors';
+import { useGameRules } from '../hooks/useGameRules';
+import { useOpponentSeats, useTableGeometry } from '../hooks/useTableLayout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 
@@ -31,15 +27,6 @@ type Selection =
   | { kind: 'redirect' };
 
 const NO_SELECTION: Selection = { kind: 'none' };
-
-/** Angles (in degrees, 0=right, -90=top) for opponents distributed across upper rim. */
-const ANGLES_BY_COUNT: Record<number, number[]> = {
-  1: [-90],
-  2: [-110, -70],
-  3: [-130, -90, -50],
-  4: [-135, -90, -45, 0],
-  5: [-150, -110, -70, -30, 10],
-};
 
 export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const { roomId } = route.params;
@@ -68,81 +55,83 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
     }
   }, [game?.phase, game?.loserId, game?.players, playerId, navigation]);
 
-  const isAttacker = game?.attackerId === playerId;
-  const isDefender = game?.defenderId === playerId;
-  const defender = game?.players.find((p) => p.id === game.defenderId);
-  const redirectMode = selection.kind === 'redirect';
-  const selectedCardId = selection.kind === 'card' ? selection.cardId : null;
-
-  const canRedirect = useMemo<boolean>(() => {
-    if (!game || !isDefender) return false;
-    return canRedirectWith(game.you.hand, game.table);
-  }, [game, isDefender]);
-
-  const playableCardIds = useMemo<Set<string>>(() => {
-    if (!game) return new Set();
-    const ids = new Set<string>();
-
-    if (isDefender && redirectMode) {
-      const firstRank = game.table[0]?.attack.rank;
-      if (!firstRank) return ids;
-      for (const card of game.you.hand) if (card.rank === firstRank) ids.add(card.id);
-      return ids;
-    }
-
-    if (isDefender) {
-      for (const card of game.you.hand) {
-        for (const pair of game.table) {
-          if (pair.defense) continue;
-          if (beats(pair.attack, card, game.trumpSuit)) {
-            ids.add(card.id);
-            break;
-          }
-        }
-      }
-      return ids;
-    }
-
-    if (isAttacker || (!isDefender && game.table.length > 0)) {
-      if (game.table.length === 0 && isAttacker) {
-        for (const c of game.you.hand) ids.add(c.id);
-        return ids;
-      }
-      const tableRanks = new Set<string>();
-      for (const pair of game.table) {
-        tableRanks.add(pair.attack.rank);
-        if (pair.defense) tableRanks.add(pair.defense.rank);
-      }
-      const undefendedCount = game.table.filter((p) => !p.defense).length;
-      const defenderCapacity = (defender?.handCount ?? 0) > undefendedCount;
-      if (!defenderCapacity) return ids;
-      for (const c of game.you.hand) if (tableRanks.has(c.rank)) ids.add(c.id);
-    }
-
-    return ids;
-  }, [game, isAttacker, isDefender, defender, redirectMode]);
-
-  const candidateAttackIds = useMemo<Set<string>>(() => {
-    const ids = new Set<string>();
-    if (!game || !isDefender || !selectedCardId || redirectMode) return ids;
-    const card = game.you.hand.find((c) => c.id === selectedCardId);
-    if (!card) return ids;
-    for (const pair of game.table) {
-      if (pair.defense) continue;
-      if (beats(pair.attack, card, game.trumpSuit)) ids.add(pair.attack.id);
-    }
-    return ids;
-  }, [game, isDefender, selectedCardId, redirectMode]);
+  const geometry = useTableGeometry();
 
   if (!game) {
     return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.loading}>
-          <Text style={styles.loadingText}>Warte auf Spielstart…</Text>
-        </View>
-      </SafeAreaView>
+      <View style={[styles.root, styles.center]}>
+        <Text style={styles.loadingText}>Warte auf Spielstart…</Text>
+      </View>
     );
   }
+
+  return (
+    <ActiveGame
+      roomId={roomId}
+      game={game}
+      playerId={playerId}
+      playerName={playerName}
+      lastError={lastError}
+      setError={setError}
+      selection={selection}
+      setSelection={setSelection}
+      busy={busy}
+      setBusy={setBusy}
+      geometry={geometry}
+    />
+  );
+};
+
+interface ActiveGameProps {
+  roomId: string;
+  game: NonNullable<ReturnType<typeof useGameStore.getState>['game']>;
+  playerId: string | null;
+  playerName: string | null;
+  lastError: string | null;
+  setError: (msg: string | null) => void;
+  selection: Selection;
+  setSelection: React.Dispatch<React.SetStateAction<Selection>>;
+  busy: boolean;
+  setBusy: (b: boolean) => void;
+  geometry: ReturnType<typeof useTableGeometry>;
+}
+
+const ActiveGame: React.FC<ActiveGameProps> = ({
+  roomId,
+  game,
+  playerId,
+  playerName,
+  lastError,
+  setError,
+  selection,
+  setSelection,
+  busy,
+  setBusy,
+  geometry,
+}) => {
+  const redirectMode = selection.kind === 'redirect';
+  const selectedCardId = selection.kind === 'card' ? selection.cardId : null;
+
+  const rules = useGameRules({ game, playerId, selectedCardId, redirectMode });
+  const {
+    isAttacker,
+    isDefender,
+    defender,
+    canRedirect,
+    playableCardIds,
+    candidateAttackIds,
+    allDefended,
+    undefendedCount,
+  } = rules;
+
+  const opponents = useMemo(
+    () => game.players.filter((p) => p.id !== playerId),
+    [game.players, playerId],
+  );
+  const seats = useOpponentSeats(opponents, game.attackerId, game.defenderId, geometry);
+
+  const isFullField = game.table.length >= 5;
+  const battleCardW = isFullField ? 50 : 64;
 
   const playDefense = async (attackCardId: string, defenseCard: CardType) => {
     setBusy(true);
@@ -180,7 +169,9 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
         return;
       }
       setSelection((prev) =>
-        prev.kind === 'card' && prev.cardId === card.id ? NO_SELECTION : { kind: 'card', cardId: card.id },
+        prev.kind === 'card' && prev.cardId === card.id
+          ? NO_SELECTION
+          : { kind: 'card', cardId: card.id },
       );
       return;
     }
@@ -217,96 +208,44 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
     setBusy(false);
   };
 
-  const allDefended = game.table.length > 0 && game.table.every((p) => p.defense !== null);
   const canEndTurn = isAttacker && allDefended;
   const canTake = isDefender && game.table.length > 0 && !allDefended;
-  const undefendedCount = game.table.filter((p) => !p.defense).length;
-
-  const opponents: PlayerPublic[] = game.players.filter((p) => p.id !== playerId);
-  const angleList =
-    ANGLES_BY_COUNT[opponents.length] ?? ANGLES_BY_COUNT[5]!.slice(0, opponents.length);
-
-  // Layout geometry — must mirror OvalTable computation.
-  const screen = Dimensions.get('window');
-  const tableW = screen.width;
-  const tableH = screen.height * 0.62; // upper portion of screen reserved for the table
-  const cx = tableW * 0.5;
-  const cy = tableH * 0.42;
-  const rx = tableW * 0.46;
-  const ry = tableH * 0.32;
-
-  const isFullField = game.table.length >= 5;
-  const battleCardW = isFullField ? 50 : 64;
-
-  const yourBannerLine = isAttacker
-    ? game.table.length === 0
-      ? 'Du greifst an'
-      : 'Dein Zug'
-    : isDefender
-      ? canRedirect
-        ? 'Verteidigen oder Weiterschieben'
-        : 'Du verteidigst'
-      : `${defender?.name ?? 'Gegner'} verteidigt`;
-
-  const yourBannerSub = isAttacker
-    ? 'Karte spielen'
-    : isDefender
-      ? canRedirect
-        ? 'Karte tippen zum Schlagen'
-        : 'Karte tippen'
-      : 'Bitte warten';
+  const banner = buildBanner({
+    isAttacker,
+    isDefender,
+    canRedirect,
+    tableLen: game.table.length,
+    defenderName: defender?.name,
+  });
 
   return (
     <View style={styles.root}>
-      {/* mahogany wood backdrop */}
       <LinearGradient
         colors={[colors.woodLight, colors.woodMid, colors.woodDark]}
         style={StyleSheet.absoluteFill}
       />
 
-      {/* Oval table layered behind everything */}
-      <View style={[styles.tableLayer, { width: tableW, height: tableH }]}>
-        <OvalTable width={tableW} height={tableH} cx={cx} cy={cy} rx={rx} ry={ry} />
+      <View
+        style={[styles.tableLayer, { width: geometry.tableW, height: geometry.tableH }]}
+      >
+        <OvalTable cx={geometry.cx} cy={geometry.cy} rx={geometry.rx} ry={geometry.ry} />
       </View>
 
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-        {/* Opponents around the upper rim */}
-        <View style={[styles.tableLayer, { width: tableW, height: tableH }]} pointerEvents="box-none">
-          {opponents.map((opp, i) => {
-            const angleDeg = angleList[i] ?? -90;
-            const rad = (angleDeg * Math.PI) / 180;
-            const x = cx + rx * Math.cos(rad);
-            const y = cy + ry * Math.sin(rad);
-            const role: 'attacker' | 'defender' | 'wait' =
-              opp.id === game.attackerId
-                ? 'attacker'
-                : opp.id === game.defenderId
-                  ? 'defender'
-                  : 'wait';
-            return (
-              <View
-                key={opp.id}
-                style={{
-                  position: 'absolute',
-                  left: x - 50,
-                  top: y - 30,
-                  width: 100,
-                  alignItems: 'center',
-                }}
-              >
-                <PlayerSeat player={opp} role={role} />
-              </View>
-            );
-          })}
+        <View
+          style={[styles.tableLayer, { width: geometry.tableW, height: geometry.tableH }]}
+          pointerEvents="box-none"
+        >
+          {seats.map((seat) => (
+            <View
+              key={seat.player.id}
+              style={[styles.seatPos, { left: seat.x - 50, top: seat.y - 30 }]}
+            >
+              <PlayerSeat player={seat.player} role={seat.role} />
+            </View>
+          ))}
 
-          {/* Trump reservoir (left) */}
-          <View
-            style={{
-              position: 'absolute',
-              left: 14,
-              top: cy - 60,
-            }}
-          >
+          <View style={[styles.trumpPos, { top: geometry.cy - 60 }]}>
             <TrumpReservoir
               trumpCard={game.trumpCard}
               trumpSuit={game.trumpSuit}
@@ -315,32 +254,15 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
             />
           </View>
 
-          {/* Discard count (right) */}
-          <View
-            style={{
-              position: 'absolute',
-              right: 14,
-              top: cy - 30,
-              alignItems: 'center',
-              gap: 4,
-            }}
-          >
+          <View style={[styles.discardPos, { top: geometry.cy - 30 }]}>
             <Text style={styles.discardLabel}>Abwurf</Text>
-            <View style={styles.discardBadge}>
+            <View style={[presets.goldPill, styles.discardBadge]}>
               <Text style={styles.discardCount}>{game.discardCount}</Text>
             </View>
           </View>
 
-          {/* Battle field — center of the felt */}
           <View
-            style={{
-              position: 'absolute',
-              left: cx - 110,
-              top: cy - 80,
-              width: 220,
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
+            style={[styles.battlePos, { left: geometry.cx - 110, top: geometry.cy - 80 }]}
             pointerEvents="box-none"
           >
             <BattleField
@@ -353,21 +275,14 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
           </View>
         </View>
 
-        {/* Status banner just below the table */}
-        <View style={[styles.banner, { top: tableH - 8 }]}>
-          <Text style={styles.bannerLine}>{yourBannerLine}</Text>
-          <Text style={styles.bannerSub}>{yourBannerSub}</Text>
+        <View style={[styles.banner, { top: geometry.tableH - 8 }]}>
+          <Text style={styles.bannerLine}>{banner.line}</Text>
+          <Text style={styles.bannerSub}>{banner.sub}</Text>
         </View>
 
-        {/* Action buttons — placed above the hand */}
         <View style={styles.actionsRow}>
           {canEndTurn ? (
-            <BrassButton
-              variant="primary"
-              label="Fertig"
-              onPress={handleEndTurn}
-              disabled={busy}
-            />
+            <BrassButton variant="primary" label="Fertig" onPress={handleEndTurn} disabled={busy} />
           ) : null}
           {canTake ? (
             <BrassButton
@@ -388,7 +303,6 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
           ) : null}
         </View>
 
-        {/* Hand at the bottom */}
         <View style={styles.handRow} pointerEvents="box-none">
           <PlayerHand
             hand={game.you.hand}
@@ -399,8 +313,7 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
           />
         </View>
 
-        {/* You — nameplate bottom-left */}
-        <View style={styles.youPlate}>
+        <View style={[presets.goldPill, styles.youPlate]}>
           <RingedAvatar initials={(playerName?.[0] ?? 'D').toUpperCase()} active />
           <View>
             <Text style={styles.youName}>Du</Text>
@@ -416,29 +329,68 @@ export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   );
 };
 
+const buildBanner = (args: {
+  isAttacker: boolean;
+  isDefender: boolean;
+  canRedirect: boolean;
+  tableLen: number;
+  defenderName: string | undefined;
+}): { line: string; sub: string } => {
+  const { isAttacker, isDefender, canRedirect, tableLen, defenderName } = args;
+  if (isAttacker) {
+    return {
+      line: tableLen === 0 ? 'Du greifst an' : 'Dein Zug',
+      sub: 'Karte spielen',
+    };
+  }
+  if (isDefender) {
+    return canRedirect
+      ? { line: 'Verteidigen oder Weiterschieben', sub: 'Karte tippen zum Schlagen' }
+      : { line: 'Du verteidigst', sub: 'Karte tippen' };
+  }
+  return { line: `${defenderName ?? 'Gegner'} verteidigt`, sub: 'Bitte warten' };
+};
+
+// Re-export for callers that previously imported SeatRole from this file
+export type { SeatRole };
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   safe: { flex: 1 },
-  loading: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.bg },
+  center: { justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: colors.creamDim, fontFamily: fonts.serif, fontSize: 16 },
-  tableLayer: {
+  tableLayer: { position: 'absolute', top: 0, left: 0 },
+  seatPos: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-  },
-  banner: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
+    width: 100,
     alignItems: 'center',
   },
+  trumpPos: { position: 'absolute', left: 14 },
+  discardPos: { position: 'absolute', right: 14, alignItems: 'center', gap: 4 },
+  discardLabel: {
+    fontSize: 8,
+    color: colors.goldLight,
+    letterSpacing: 2,
+    textTransform: 'uppercase',
+    fontWeight: '700',
+    fontFamily: fonts.serif,
+  },
+  discardBadge: { paddingHorizontal: 10, paddingVertical: 4 },
+  discardCount: { fontSize: 12, fontWeight: '700', color: colors.goldLight, fontFamily: fonts.serif },
+  battlePos: {
+    position: 'absolute',
+    width: 220,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  banner: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
   bannerLine: {
     fontFamily: fonts.serif,
     fontSize: 19,
     fontWeight: '700',
     color: colors.cream,
     letterSpacing: -0.2,
-    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowColor: colors.textShadow,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
   },
@@ -459,12 +411,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 12,
   },
-  handRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-  },
+  handRow: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   youPlate: {
     position: 'absolute',
     left: 12,
@@ -475,10 +422,6 @@ const styles = StyleSheet.create({
     paddingLeft: 4,
     paddingRight: 12,
     paddingVertical: 4,
-    borderRadius: 999,
-    borderWidth: 0.5,
-    borderColor: colors.goldMuted,
-    backgroundColor: 'rgba(20,8,3,0.55)',
   },
   youName: {
     color: colors.creamSoft,
@@ -493,27 +436,5 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
     fontWeight: '700',
     marginTop: 2,
-  },
-  discardLabel: {
-    fontSize: 8,
-    color: colors.goldLight,
-    letterSpacing: 2,
-    textTransform: 'uppercase',
-    fontWeight: '700',
-    fontFamily: fonts.serif,
-  },
-  discardBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    backgroundColor: 'rgba(20,8,3,0.7)',
-    borderWidth: 0.5,
-    borderColor: colors.goldMuted,
-  },
-  discardCount: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.goldLight,
-    fontFamily: fonts.serif,
   },
 });

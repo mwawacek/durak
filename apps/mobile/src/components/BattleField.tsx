@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, StyleSheet, View, ViewStyle, Pressable } from 'react-native';
+import React, { memo, useEffect, useRef } from 'react';
+import { Animated, StyleSheet, View, type ViewStyle } from 'react-native';
 import type { AttackPair } from '@durak/shared';
 import { Card } from './Card';
 import { colors } from '../theme/colors';
@@ -22,30 +22,24 @@ export const BattleField: React.FC<Props> = ({
   highlightedAttackIds,
   style,
 }) => {
+  const gap = cardW * (fullField ? 0.18 : 0.25);
+  const pad = cardW * 0.18;
+  if (pairs.length === 0) {
+    return <View style={[styles.wrap, { gap, padding: pad }, style]} />;
+  }
   return (
-    <View
-      style={[
-        styles.wrap,
-        {
-          gap: cardW * (fullField ? 0.18 : 0.25),
-          padding: cardW * 0.18,
-        },
-        style,
-      ]}
-    >
-      {pairs.length === 0 ? null : (
-        <View style={[styles.grid, { gap: cardW * (fullField ? 0.18 : 0.25) }]}>
-          {pairs.map((p) => (
-            <BattlePair
-              key={p.attack.id}
-              pair={p}
-              cardW={cardW}
-              onPress={onAttackPress ? () => onAttackPress(p.attack.id) : undefined}
-              highlighted={highlightedAttackIds?.has(p.attack.id)}
-            />
-          ))}
-        </View>
-      )}
+    <View style={[styles.wrap, { gap, padding: pad }, style]}>
+      <View style={[styles.grid, { gap }]}>
+        {pairs.map((p) => (
+          <BattlePair
+            key={p.attack.id}
+            pair={p}
+            cardW={cardW}
+            onPress={onAttackPress ? () => onAttackPress(p.attack.id) : undefined}
+            highlighted={highlightedAttackIds?.has(p.attack.id)}
+          />
+        ))}
+      </View>
     </View>
   );
 };
@@ -57,28 +51,20 @@ interface PairProps {
   highlighted?: boolean;
 }
 
-const BattlePair: React.FC<PairProps> = ({ pair, cardW, onPress, highlighted }) => {
+const BattlePairImpl: React.FC<PairProps> = ({ pair, cardW, onPress, highlighted }) => {
   const undefended = !pair.defense;
-  const defenseCard = pair.defense;
   return (
-    <View
-      style={{
-        width: cardW * 1.15,
-        height: cardW * 1.7,
-        position: 'relative',
-      }}
-    >
-      <Pressable onPress={onPress} disabled={!onPress}>
+    <View style={{ width: cardW * 1.15, height: cardW * 1.7, position: 'relative' }}>
+      <Card
+        card={pair.attack}
+        size="md"
+        selected={highlighted}
+        onPress={onPress}
+        style={{ position: 'absolute', top: 0, left: 0 }}
+      />
+      {pair.defense ? (
         <Card
-          card={pair.attack}
-          size="md"
-          selected={highlighted}
-          style={{ position: 'absolute', top: 0, left: 0 }}
-        />
-      </Pressable>
-      {defenseCard ? (
-        <Card
-          card={defenseCard}
+          card={pair.defense}
           size="md"
           defended
           rotate={16}
@@ -89,6 +75,8 @@ const BattlePair: React.FC<PairProps> = ({ pair, cardW, onPress, highlighted }) 
     </View>
   );
 };
+
+const BattlePair = memo(BattlePairImpl);
 
 const PulsingOutline: React.FC<{ cardW: number }> = ({ cardW }) => {
   const opacity = useRef(new Animated.Value(0.5)).current;
@@ -115,7 +103,7 @@ const PulsingOutline: React.FC<{ cardW: number }> = ({ cardW }) => {
         borderWidth: 1.5,
         borderStyle: 'dashed',
         borderColor: colors.warmAlert,
-        backgroundColor: 'rgba(255,170,80,0.05)',
+        backgroundColor: colors.warmAlertHaze,
         opacity,
       }}
     />

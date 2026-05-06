@@ -1,8 +1,8 @@
 import React from 'react';
-import { StyleSheet, Text, View, ViewStyle } from 'react-native';
+import { StyleSheet, Text, View, type ViewStyle } from 'react-native';
 import { type Card as CardType, type Suit, SUIT_GLYPH } from '@durak/shared';
 import { Card } from './Card';
-import { colors, fonts } from '../theme/colors';
+import { colors, fonts, presets } from '../theme/colors';
 
 interface Props {
   trumpCard: CardType | null;
@@ -26,19 +26,7 @@ export const TrumpReservoir: React.FC<Props> = ({
     <View style={[styles.wrap, style]}>
       <Text style={styles.label}>Trumpf</Text>
       <View style={{ width: stackWidth, height: stackHeight, position: 'relative' }}>
-        {/* gold halo */}
-        <View
-          style={{
-            position: 'absolute',
-            top: -6,
-            left: -6,
-            right: -6,
-            bottom: -6,
-            backgroundColor: 'rgba(230,196,120,0.08)',
-            borderRadius: 14,
-          }}
-        />
-        {/* Trump card poking out, rotated 90° */}
+        <View style={[styles.halo, { borderRadius: 14 }]} />
         {trumpCard ? (
           <View
             style={{
@@ -51,7 +39,6 @@ export const TrumpReservoir: React.FC<Props> = ({
             <Card card={trumpCard} size="md" selected />
           </View>
         ) : null}
-        {/* Deck stack on top of trump */}
         {deckCount > 0 ? (
           <View style={{ position: 'absolute', top: 0, left: cardW * 0.55 }}>
             <View style={{ position: 'absolute', top: 4, left: 4 }}>
@@ -64,11 +51,8 @@ export const TrumpReservoir: React.FC<Props> = ({
           </View>
         ) : null}
       </View>
-      {/* Count badge */}
-      <View style={styles.countBadge}>
-        {trumpSuit ? (
-          <Text style={[styles.countGlyph]}>{SUIT_GLYPH[trumpSuit]}</Text>
-        ) : null}
+      <View style={[presets.goldPill, styles.countBadge]}>
+        {trumpSuit ? <Text style={styles.countGlyph}>{SUIT_GLYPH[trumpSuit]}</Text> : null}
         <Text style={styles.countNum}>{deckCount}</Text>
       </View>
     </View>
@@ -76,10 +60,7 @@ export const TrumpReservoir: React.FC<Props> = ({
 };
 
 const styles = StyleSheet.create({
-  wrap: {
-    alignItems: 'center',
-    gap: 5,
-  },
+  wrap: { alignItems: 'center', gap: 5 },
   label: {
     fontSize: 8,
     color: colors.goldLight,
@@ -88,16 +69,20 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     fontFamily: fonts.serif,
   },
+  halo: {
+    position: 'absolute',
+    top: -6,
+    left: -6,
+    right: -6,
+    bottom: -6,
+    backgroundColor: colors.goldHaloBg,
+  },
   countBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 999,
-    backgroundColor: 'rgba(20,8,3,0.7)',
-    borderWidth: 0.5,
-    borderColor: 'rgba(212,165,72,0.4)',
   },
   countGlyph: { fontSize: 10, color: colors.goldLight },
   countNum: { fontSize: 10, color: colors.goldLight, fontWeight: '700' },

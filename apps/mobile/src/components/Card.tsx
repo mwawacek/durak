@@ -1,8 +1,20 @@
-import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ViewStyle } from 'react-native';
+import React, { memo } from 'react';
+import { StyleSheet, Text, TouchableOpacity, View, type ViewStyle } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { type Card as CardType, type Rank, type Suit, SUIT_GLYPH, isRedSuit } from '@durak/shared';
-import { colors, elevation, fonts, radii } from '../theme/colors';
+import { colors, elevation, fonts } from '../theme/colors';
+
+export const CARD_SIZES = {
+  sm: 44,
+  md: 64,
+  lg: 80,
+} as const;
+
+/** Width × height for a given card size token (cards have a 1.45 aspect ratio). */
+export const cardDims = (size: keyof typeof CARD_SIZES = 'md') => {
+  const w = CARD_SIZES[size];
+  return { w, h: w * 1.45 };
+};
 
 interface Props {
   card: CardType | null;
@@ -16,15 +28,9 @@ interface Props {
   defended?: boolean;
   /** Rotate the whole card by N degrees. */
   rotate?: number;
-  size?: 'sm' | 'md' | 'lg';
+  size?: keyof typeof CARD_SIZES;
   style?: ViewStyle;
 }
-
-const SIZE = {
-  sm: 44,
-  md: 64,
-  lg: 80,
-} as const;
 
 const FACE_MONOGRAM: Record<string, string> = { J: 'B', Q: 'D', K: 'K', A: 'A' };
 const FACE_BG: Record<string, string> = {
@@ -47,17 +53,13 @@ export const Card: React.FC<Props> = ({
   size = 'md',
   style,
 }) => {
-  const w = SIZE[size];
-  const h = w * 1.45;
+  const { w, h } = cardDims(size);
 
   let outerShadow: ViewStyle = elevation.card;
   let outerBorder: ViewStyle = {};
   if (selected) {
     outerShadow = elevation.raised;
-    outerBorder = {
-      borderWidth: 1.5,
-      borderColor: colors.goldLight,
-    };
+    outerBorder = { borderWidth: 1.5, borderColor: colors.goldLight };
   } else if (defended) {
     outerBorder = { borderWidth: 1.5, borderColor: colors.defendingGreen };
   }
@@ -87,42 +89,30 @@ export const Card: React.FC<Props> = ({
       onPress={onPress}
       disabled={disabled}
       activeOpacity={0.85}
-      style={disabled ? { opacity: 0.5 } : undefined}
+      style={disabled ? styles.disabledTouch : undefined}
     >
       {content}
     </TouchableOpacity>
   );
 };
 
-/** Empty placeholder slot the size of a card, dashed gold border. */
-export const CardSlot: React.FC<{ size?: 'sm' | 'md' | 'lg'; style?: ViewStyle }> = ({
-  size = 'md',
-  style,
-}) => {
-  const w = SIZE[size];
-  return (
-    <View
-      style={[
-        slotStyles.slot,
-        { width: w, height: w * 1.45 },
-        style,
-      ]}
-    />
-  );
-};
-
-// ─── Card face ─────────────────────────────────────────────────
-const CardFaceVisual: React.FC<{ w: number; rank: Rank; suit: Suit }> = ({ w, rank, suit }) => {
+const CardFaceVisualImpl: React.FC<{ w: number; rank: Rank; suit: Suit }> = ({ w, rank, suit }) => {
   const suitColor = isRedSuit(suit) ? colors.cardSuitRed : colors.cardSuitBlack;
   const cornerSize = w * 0.22;
   const isFace = FACE_RANKS.has(rank);
+  const cornerRankStyle = {
+    fontFamily: fonts.serif,
+    fontSize: cornerSize,
+    fontWeight: '800' as const,
+    color: suitColor,
+    letterSpacing: -0.5,
+    lineHeight: cornerSize * 1.05,
+  };
+  const cornerSuitStyle = { fontSize: cornerSize * 0.82, color: suitColor, marginTop: 1 };
   return (
     <LinearGradient
       colors={[colors.cardFace, colors.cardFaceShadow]}
-      style={[
-        StyleSheet.absoluteFill,
-        { borderRadius: w * 0.085, overflow: 'hidden' },
-      ]}
+      style={[StyleSheet.absoluteFill, { borderRadius: w * 0.085, overflow: 'hidden' }]}
     >
       {/* hairline inner border */}
       <View
@@ -138,61 +128,32 @@ const CardFaceVisual: React.FC<{ w: number; rank: Rank; suit: Suit }> = ({ w, ra
         }}
       />
 
-      {/* top-left corner: rank + suit stacked tight */}
       <View style={[styles.corner, { top: w * 0.04, left: w * 0.06 }]}>
-        <Text
-          style={{
-            fontFamily: fonts.serif,
-            fontSize: cornerSize,
-            fontWeight: '800',
-            color: suitColor,
-            letterSpacing: -0.5,
-            lineHeight: cornerSize * 1.05,
-          }}
-        >
-          {rank}
-        </Text>
-        <Text style={{ fontSize: cornerSize * 0.82, color: suitColor, marginTop: 1 }}>
-          {SUIT_GLYPH[suit]}
-        </Text>
+        <Text style={cornerRankStyle}>{rank}</Text>
+        <Text style={cornerSuitStyle}>{SUIT_GLYPH[suit]}</Text>
       </View>
 
-      {/* bottom-right corner (rotated) */}
       <View
         style={[
           styles.corner,
           { bottom: w * 0.04, right: w * 0.06, transform: [{ rotate: '180deg' }] },
         ]}
       >
-        <Text
-          style={{
-            fontFamily: fonts.serif,
-            fontSize: cornerSize,
-            fontWeight: '800',
-            color: suitColor,
-            letterSpacing: -0.5,
-            lineHeight: cornerSize * 1.05,
-          }}
-        >
-          {rank}
-        </Text>
-        <Text style={{ fontSize: cornerSize * 0.82, color: suitColor, marginTop: 1 }}>
-          {SUIT_GLYPH[suit]}
-        </Text>
+        <Text style={cornerRankStyle}>{rank}</Text>
+        <Text style={cornerSuitStyle}>{SUIT_GLYPH[suit]}</Text>
       </View>
 
-      {/* center: face medallion or pips */}
       {isFace ? <FaceMedallion suit={suit} rank={rank} w={w} /> : <Pips suit={suit} rank={rank} w={w} />}
     </LinearGradient>
   );
 };
+const CardFaceVisual = memo(CardFaceVisualImpl);
 
-// ─── Face medallion (J/Q/K/A) ──────────────────────────────────
-const FaceMedallion: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, rank, w }) => {
+const FaceMedallionImpl: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, rank, w }) => {
   const suitColor = isRedSuit(suit) ? colors.cardSuitRed : colors.cardSuitBlack;
   const portraitBg = FACE_BG[rank] ?? colors.faceK;
   const monogram = FACE_MONOGRAM[rank] ?? rank;
-  const pipColor = isRedSuit(suit) ? '#ff8a82' : colors.goldLight;
+  const pipColor = isRedSuit(suit) ? colors.redPipLight : colors.goldLight;
   return (
     <View
       style={{
@@ -219,7 +180,6 @@ const FaceMedallion: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, 
           overflow: 'hidden',
         }}
       >
-        {/* gold inner border */}
         <View
           style={{
             position: 'absolute',
@@ -270,8 +230,8 @@ const FaceMedallion: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, 
     </View>
   );
 };
+const FaceMedallion = memo(FaceMedallionImpl);
 
-// ─── Pips for number cards 6..10 ───────────────────────────────
 const PIP_LAYOUTS: Record<string, [number, number][]> = {
   '6':  [[0,0],[1,0],[0,0.5],[1,0.5],[0,1],[1,1]],
   '7':  [[0,0],[1,0],[0.5,0.25],[0,0.5],[1,0.5],[0,1],[1,1]],
@@ -280,7 +240,7 @@ const PIP_LAYOUTS: Record<string, [number, number][]> = {
   '10': [[0,0],[1,0],[0.5,0.18],[0,0.33],[1,0.33],[0,0.66],[1,0.66],[0.5,0.82],[0,1],[1,1]],
 };
 
-const Pips: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, rank, w }) => {
+const PipsImpl: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, rank, w }) => {
   const layout = PIP_LAYOUTS[rank];
   if (!layout) return null;
   const suitColor = isRedSuit(suit) ? colors.cardSuitRed : colors.cardSuitBlack;
@@ -315,20 +275,16 @@ const Pips: React.FC<{ suit: Suit; rank: Rank; w: number }> = ({ suit, rank, w }
     </View>
   );
 };
+const Pips = memo(PipsImpl);
 
-// ─── Card back (burgundy + gold filigree) ──────────────────────
-const CardBackVisual: React.FC<{ w: number }> = ({ w }) => {
+const CardBackVisualImpl: React.FC<{ w: number }> = ({ w }) => {
   return (
     <LinearGradient
       colors={[colors.burgundy, colors.burgundyDark]}
       start={{ x: 0, y: 0 }}
       end={{ x: 1, y: 1 }}
-      style={[
-        StyleSheet.absoluteFill,
-        { borderRadius: w * 0.085, overflow: 'hidden' },
-      ]}
+      style={[StyleSheet.absoluteFill, { borderRadius: w * 0.085, overflow: 'hidden' }]}
     >
-      {/* outer gold border */}
       <View
         style={{
           position: 'absolute',
@@ -341,7 +297,6 @@ const CardBackVisual: React.FC<{ w: number }> = ({ w }) => {
           borderColor: colors.gold,
         }}
       />
-      {/* inner thin gold border */}
       <View
         style={{
           position: 'absolute',
@@ -351,10 +306,9 @@ const CardBackVisual: React.FC<{ w: number }> = ({ w }) => {
           bottom: w * 0.075,
           borderRadius: w * 0.04,
           borderWidth: StyleSheet.hairlineWidth,
-          borderColor: 'rgba(212,165,72,0.5)',
+          borderColor: colors.goldRailFaint,
         }}
       />
-      {/* center diamond (rotated square outline) */}
       <View
         style={{
           position: 'absolute',
@@ -365,10 +319,9 @@ const CardBackVisual: React.FC<{ w: number }> = ({ w }) => {
           borderWidth: 1,
           borderColor: colors.gold,
           transform: [{ rotate: '45deg' }],
-          backgroundColor: 'rgba(212,165,72,0.12)',
+          backgroundColor: colors.goldHaloBg,
         }}
       />
-      {/* inner diamond */}
       <View
         style={{
           position: 'absolute',
@@ -381,7 +334,6 @@ const CardBackVisual: React.FC<{ w: number }> = ({ w }) => {
           transform: [{ rotate: '45deg' }],
         }}
       />
-      {/* center bullion */}
       <View
         style={{
           position: 'absolute',
@@ -393,7 +345,6 @@ const CardBackVisual: React.FC<{ w: number }> = ({ w }) => {
           backgroundColor: colors.goldLight,
         }}
       />
-      {/* corner ornaments (4 small circles) */}
       {[
         { top: w * 0.12, left: w * 0.12 },
         { top: w * 0.12, right: w * 0.12 },
@@ -416,6 +367,7 @@ const CardBackVisual: React.FC<{ w: number }> = ({ w }) => {
     </LinearGradient>
   );
 };
+const CardBackVisual = memo(CardBackVisualImpl);
 
 const styles = StyleSheet.create({
   card: {
@@ -424,18 +376,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.cardFace,
   },
   notPlayable: { opacity: 0.45 },
-  corner: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-});
-
-const slotStyles = StyleSheet.create({
-  slot: {
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: 'rgba(212,165,72,0.4)',
-    backgroundColor: 'transparent',
-  },
+  disabledTouch: { opacity: 0.5 },
+  corner: { position: 'absolute', alignItems: 'center' },
 });
