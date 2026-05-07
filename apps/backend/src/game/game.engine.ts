@@ -1,4 +1,5 @@
 import {
+  AttackPair,
   Card,
   STARTING_HAND_SIZE,
   ERROR_CODES,
@@ -66,6 +67,58 @@ const neighborAttackers = (s: GameStateInternal): Set<number> => {
   set.add(nextActiveIdx(s, s.defenderIdx));
   set.delete(s.defenderIdx);
   return set;
+};
+
+const playerHasPileOnCard = (player: PlayerInternal, table: AttackPair[]): boolean => {
+  const ranks = ranksOnTable(table);
+  return player.hand.some((c) => ranks.has(c.rank));
+};
+
+/**
+ * Indices of attackers who still need to call "Bito" before the defended
+ * round can commit. Returns an empty set unless the table is fully defended.
+ *
+ * Auto-pass: an eligible attacker is excluded from this set if they have no
+ * pile-on-capable card (no rank match) — there's nothing to wait on them for.
+ */
+const computePendingIndices = (s: GameStateInternal): Set<number> => {
+  if (s.table.length === 0 || !tableFullyDefended(s.table)) return new Set();
+  if (s.table.length >= MAX_TABLE_PAIRS) return new Set(); // table full → no more pile-on possible
+  const defender = s.players[s.defenderIdx];
+  if (!defender || defender.hand.length === 0) return new Set(); // no defender capacity
+
+  const eligible = neighborAttackers(s);
+  const pending = new Set<number>();
+  for (const idx of eligible) {
+    if (s.passConfirmations.has(idx)) continue;
+    const player = s.players[idx]!;
+    if (player.hasFinished) continue;
+    if (!playerHasPileOnCard(player, s.table)) continue;
+    pending.add(idx);
+  }
+  return pending;
+};
+
+export const pendingConfirmationIds = (s: GameStateInternal): string[] => {
+  return [...computePendingIndices(s)].map((idx) => s.players[idx]!.id);
+};
+
+const commitRoundEnd = (s: GameStateInternal): void => {
+  for (const pair of s.table) {
+    s.discard.push(pair.attack);
+    if (pair.defense) s.discard.push(pair.defense);
+  }
+  s.table = [];
+  refillHands(s, s.attackerIdx);
+  rotateAfterSuccess(s);
+  s.passConfirmations.clear();
+};
+
+const tryAutoCommit = (s: GameStateInternal): void => {
+  if (s.table.length === 0 || !tableFullyDefended(s.table)) return;
+  if (computePendingIndices(s).size === 0) {
+    commitRoundEnd(s);
+  }
 };
 
 type Role = 'attacker' | 'defender' | 'any-attacker';
@@ -210,6 +263,9 @@ export const playDefense = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
+  // If the table is now fully defended and no eligible attacker can pile on,
+  // commit the round immediately — nothing to wait for.
+  tryAutoCommit(s);
   checkFinished(s);
   return s;
 };
@@ -268,9 +324,20 @@ export const redirectAttack = (
   return s;
 };
 
+/**
+ * "Bito" — confirms that the calling attacker has nothing more to add this round.
+ *
+ * Any eligible attacker (main attacker + active neighbours of the defender) can
+ * call this; the round only commits once everyone who could still pile on has
+ * either confirmed or has nothing left to throw in.
+ */
 export const endTurn = (state: GameStateInternal, playerId: string): GameStateInternal => {
-  const { s } = requireTurn(state, playerId, 'attacker', ['attacking', 'defending']);
+  const { s, playerIdx } = requireTurn(state, playerId, 'any-attacker', ['attacking', 'defending']);
 
+  const eligible = neighborAttackers(s);
+  if (!eligible.has(playerIdx)) {
+    throw new GameRuleError(ERROR_CODES.NOT_YOUR_TURN, 'Not eligible to confirm this round');
+  }
   if (s.table.length === 0) {
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Nothing to end');
   }
@@ -278,14 +345,8 @@ export const endTurn = (state: GameStateInternal, playerId: string): GameStateIn
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Table not fully defended');
   }
 
-  for (const pair of s.table) {
-    s.discard.push(pair.attack);
-    if (pair.defense) s.discard.push(pair.defense);
-  }
-  s.table = [];
-
-  refillHands(s, s.attackerIdx);
-  rotateAfterSuccess(s);
+  s.passConfirmations.add(playerIdx);
+  tryAutoCommit(s);
   checkFinished(s);
   return s;
 };

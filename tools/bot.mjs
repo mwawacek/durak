@@ -35,6 +35,14 @@ const ack = (socket, event, ...payload) =>
   });
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const cheapestNonTrumpFirst = (cards, trumpSuit) =>
+  [...cards].sort((a, b) => {
+    const aT = a.suit === trumpSuit ? 1 : 0;
+    const bT = b.suit === trumpSuit ? 1 : 0;
+    if (aT !== bT) return aT - bT;
+    return RANK_ORDER[a.rank] - RANK_ORDER[b.rank];
+  });
+
 /** Pick an attack or defense move; returns the next Socket event + payload. */
 const pickMove = (game, myId, roomId) => {
   if (!game) return null;
@@ -42,54 +50,50 @@ const pickMove = (game, myId, roomId) => {
 
   const amAttacker = game.attackerId === myId;
   const amDefender = game.defenderId === myId;
+  const needsMyConfirmation = (game.pendingConfirmations ?? []).includes(myId);
 
   // Defender decisions
   if (amDefender) {
     const undefended = game.table.find((p) => !p.defense);
-    if (!undefended) return null; // nothing to do
-    // Try to defend cheapest-first (non-trump before trump)
-    const candidates = game.you.hand
-      .filter((c) => beats(undefended.attack, c, game.trumpSuit))
-      .sort((a, b) => {
-        const aTrump = a.suit === game.trumpSuit ? 1 : 0;
-        const bTrump = b.suit === game.trumpSuit ? 1 : 0;
-        if (aTrump !== bTrump) return aTrump - bTrump;
-        return RANK_ORDER[a.rank] - RANK_ORDER[b.rank];
-      });
-    if (candidates.length > 0) {
+    if (!undefended) return null;
+    const candidates = game.you.hand.filter((c) => beats(undefended.attack, c, game.trumpSuit));
+    const sorted = cheapestNonTrumpFirst(candidates, game.trumpSuit);
+    if (sorted.length > 0) {
       return {
         event: SOCKET_EVENTS.DEFEND_CARD,
-        payload: { roomId, attackCardId: undefended.attack.id, defenseCard: candidates[0] },
+        payload: { roomId, attackCardId: undefended.attack.id, defenseCard: sorted[0] },
       };
     }
-    // No defense — take cards.
     return { event: SOCKET_EVENTS.TAKE_CARDS, payload: { roomId } };
   }
 
-  // Attacker decisions
-  if (amAttacker) {
-    // Open a new attack
-    if (game.table.length === 0) {
-      // Play the lowest non-trump card if possible.
-      const sorted = [...game.you.hand].sort((a, b) => {
-        const aT = a.suit === game.trumpSuit ? 1 : 0;
-        const bT = b.suit === game.trumpSuit ? 1 : 0;
-        if (aT !== bT) return aT - bT;
-        return RANK_ORDER[a.rank] - RANK_ORDER[b.rank];
-      });
-      const card = sorted[0];
-      if (!card) return null;
-      return { event: SOCKET_EVENTS.PLAY_CARD, payload: { roomId, card } };
+  // Bito-Bestätigung (kann sowohl Hauptangreifer als auch Nachbar sein):
+  // Wenn ich noch eine günstige passende Karte habe → nachlegen, sonst bestätigen.
+  if (needsMyConfirmation) {
+    const tableRanks = new Set();
+    for (const pair of game.table) {
+      tableRanks.add(pair.attack.rank);
+      if (pair.defense) tableRanks.add(pair.defense.rank);
     }
-    // All defended → end turn (bito)
-    if (game.table.every((p) => p.defense)) {
-      return { event: SOCKET_EVENTS.END_TURN, payload: { roomId } };
+    const pileable = game.you.hand.filter((c) => tableRanks.has(c.rank));
+    const cheap = cheapestNonTrumpFirst(pileable, game.trumpSuit).find(
+      (c) => c.suit !== game.trumpSuit,
+    );
+    if (cheap) {
+      return { event: SOCKET_EVENTS.PLAY_CARD, payload: { roomId, card: cheap } };
     }
-    // Mid-round: wait for defender
-    return null;
+    return { event: SOCKET_EVENTS.END_TURN, payload: { roomId } };
   }
 
-  // Not my turn (neighbour pile-on is possible, but keep bot simple — just wait)
+  // Hauptangreifer eröffnet eine Runde
+  if (amAttacker && game.table.length === 0) {
+    const sorted = cheapestNonTrumpFirst(game.you.hand, game.trumpSuit);
+    const card = sorted[0];
+    if (!card) return null;
+    return { event: SOCKET_EVENTS.PLAY_CARD, payload: { roomId, card } };
+  }
+
+  // Sonst (z.B. mid-round, gar nicht beteiligt) — warten.
   return null;
 };
 

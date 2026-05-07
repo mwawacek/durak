@@ -8,6 +8,7 @@ import {
   GameStatePublic,
   GameStatePrivate,
 } from '@durak/shared';
+import { pendingConfirmationIds } from './game.engine';
 
 export interface PlayerInternal {
   id: string;
@@ -63,6 +64,7 @@ export const projectPublic = (state: GameStateInternal): GameStatePublic => ({
   defenderId: state.players[state.defenderIdx]?.id ?? null,
   turnStartedAt: state.turnStartedAt,
   loserId: state.loserId,
+  pendingConfirmations: pendingConfirmationIds(state),
 });
 
 export const projectPrivate = (state: GameStateInternal, playerId: string): GameStatePrivate => {

@@ -50,6 +50,13 @@ export interface GameStatePublic {
   defenderId: string | null;
   turnStartedAt: number | null;
   loserId: string | null;
+  /**
+   * Player IDs whose explicit "Bito" confirmation is still required before the
+   * defended round can commit (i.e. eligible attackers who still have a
+   * pile-on-capable card and haven't confirmed yet). Empty unless the table
+   * is fully defended.
+   */
+  pendingConfirmations: string[];
 }
 
 /** Per-recipient view — includes the receiving player's own hand. */

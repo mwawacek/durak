@@ -98,8 +98,9 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
     canRedirect,
     playableCardIds,
     candidateAttackIds,
-    allDefended,
     undefendedCount,
+    needsMyConfirmation,
+    awaitingFrom,
   } = rules;
 
   // Clear stale selection if the selected card is no longer in our hand
@@ -198,14 +199,16 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
     setBusy(false);
   };
 
-  const canEndTurn = isAttacker && allDefended;
-  const canTake = isDefender && game.table.length > 0 && !allDefended;
+  const canEndTurn = needsMyConfirmation;
+  const canTake = isDefender && game.table.length > 0 && undefendedCount > 0;
   const banner = buildBanner({
     isAttacker,
     isDefender,
     canRedirect,
     tableLen: game.table.length,
     defenderName: defender?.name,
+    awaitingFrom,
+    needsMyConfirmation,
   });
 
   return (
@@ -328,8 +331,31 @@ const buildBanner = (args: {
   canRedirect: boolean;
   tableLen: number;
   defenderName: string | undefined;
+  awaitingFrom: string[];
+  needsMyConfirmation: boolean;
 }): { line: string; sub: string } => {
-  const { isAttacker, isDefender, canRedirect, tableLen, defenderName } = args;
+  const {
+    isAttacker,
+    isDefender,
+    canRedirect,
+    tableLen,
+    defenderName,
+    awaitingFrom,
+    needsMyConfirmation,
+  } = args;
+
+  if (needsMyConfirmation) {
+    return {
+      line: 'Nachlegen oder Bito',
+      sub: 'Karte legen oder „Fertig" tippen',
+    };
+  }
+  if (awaitingFrom.length > 0) {
+    return {
+      line: `Warte auf ${awaitingFrom.join(', ')}`,
+      sub: 'Bestätigung steht aus',
+    };
+  }
   if (isAttacker) {
     return {
       line: tableLen === 0 ? 'Du greifst an' : 'Dein Zug',

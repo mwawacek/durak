@@ -19,6 +19,10 @@ export interface GameRules {
   candidateAttackIds: Set<string>;
   allDefended: boolean;
   undefendedCount: number;
+  /** True iff this player is one of the attackers whose Bito confirmation is still pending. */
+  needsMyConfirmation: boolean;
+  /** Player names of attackers whose Bito is still awaited (excluding the current player). */
+  awaitingFrom: string[];
 }
 
 interface Args {
@@ -95,6 +99,12 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
   const allDefended = tableFullyDefended(game.table);
   const undefendedCount = game.table.filter((p) => !p.defense).length;
 
+  const pending = game.pendingConfirmations ?? [];
+  const needsMyConfirmation = playerId !== null && pending.includes(playerId);
+  const awaitingFrom = pending
+    .filter((id) => id !== playerId)
+    .map((id) => game.players.find((p) => p.id === id)?.name ?? '?');
+
   return {
     isAttacker,
     isDefender,
@@ -104,5 +114,7 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
     candidateAttackIds,
     allDefended,
     undefendedCount,
+    needsMyConfirmation,
+    awaitingFrom,
   };
 };
