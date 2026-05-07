@@ -66,3 +66,6 @@ export interface GameStatePrivate extends GameStatePublic {
 
 export const MIN_PLAYERS = 2;
 export const MAX_PLAYERS = 6;
+
+/** Maximum number of attack/defense pairs that can sit on the table at once. */
+export const MAX_TABLE_PAIRS = 6;

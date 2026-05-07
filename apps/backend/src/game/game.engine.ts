@@ -1,6 +1,7 @@
 import {
   AttackPair,
   Card,
+  MAX_TABLE_PAIRS,
   STARTING_HAND_SIZE,
   ERROR_CODES,
   ErrorCode,
@@ -16,8 +17,6 @@ export class GameRuleError extends Error {
     super(message);
   }
 }
-
-const MAX_TABLE_PAIRS = 6;
 
 const cloneState = (s: GameStateInternal): GameStateInternal => ({
   ...s,

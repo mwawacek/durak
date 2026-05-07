@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import {
   beats,
   canRedirectWith,
+  MAX_TABLE_PAIRS,
   ranksOnTable,
   tableFullyDefended,
   type GameStatePrivate,
@@ -74,6 +75,8 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
         for (const c of game.you.hand) ids.add(c.id);
         return ids;
       }
+      // No more pile-on once the table is full (engine cap).
+      if (game.table.length >= MAX_TABLE_PAIRS) return ids;
       const tableRanks = ranksOnTable(game.table);
       const undefendedCount = game.table.filter((p) => !p.defense).length;
       const defenderCapacity = (defender?.handCount ?? 0) > undefendedCount;
