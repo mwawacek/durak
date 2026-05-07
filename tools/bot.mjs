@@ -101,13 +101,30 @@ const main = async () => {
   await new Promise((r) => socket.once('connect', r));
   log('connected, socket id', socket.id);
 
-  const state = { game: null, me: null, roomId: ROOM_ID ?? null };
+  const state = { game: null, me: null, roomId: ROOM_ID ?? null, gen: 0 };
 
   socket.on('gameStateUpdate', async (g) => {
     state.game = g;
-    await wait(600 + Math.random() * 600); // humanize
+    state.gen += 1;
+    const myGen = state.gen;
+
+    // First "thinking" delay: short, just to feel human.
+    await wait(600 + Math.random() * 600);
+    if (state.gen !== myGen) return; // a newer state arrived — this tick is stale
+
     const move = pickMove(g, state.me?.id, state.roomId);
     if (!move) return;
+
+    // Give human attackers a generous pile-on window before announcing TAKE.
+    // Without this, bot's TAKE_CARDS races a human's PLAY_CARD and the
+    // human's pile-on becomes a fresh attack on the next round instead of
+    // being collected — which looks exactly like "die letzte Karte wurde
+    // nicht aufgenommen".
+    if (move.event === SOCKET_EVENTS.TAKE_CARDS) {
+      await wait(2500 + Math.random() * 1000);
+      if (state.gen !== myGen) return; // human reacted in time — re-evaluate on the new state
+    }
+
     log('→', move.event, move.payload.card ? `${move.payload.card.rank}${move.payload.card.suit[0].toUpperCase()}` : '');
     try {
       const res = await ack(socket, move.event, move.payload);
