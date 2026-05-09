@@ -2,6 +2,7 @@ import {
   AttackPair,
   Card,
   MAX_TABLE_PAIRS,
+  RANK_ORDER,
   STARTING_HAND_SIZE,
   ERROR_CODES,
   ErrorCode,
@@ -177,10 +178,20 @@ export const initGame = ({ roomId, players, deck, dealerIdx, now }: InitArgs): G
   const trumpCard = deckCopy.length > 0 ? deckCopy[deckCopy.length - 1]! : null;
   const trumpSuit = trumpCard ? trumpCard.suit : null;
 
-  // First attacker = holder of 8 of Hearts; fallback = player after dealer.
-  let attackerIdx = internalPlayers.findIndex((p) =>
-    p.hand.some((c) => c.suit === 'hearts' && c.rank === '8'),
-  );
+  // Standard Russian Durak rule: first attacker holds the lowest trump.
+  // Fallback (e.g. no trump dealt — exceedingly rare): player after dealer.
+  let attackerIdx = -1;
+  let lowestTrumpRank = Number.POSITIVE_INFINITY;
+  if (trumpSuit) {
+    for (let i = 0; i < internalPlayers.length; i++) {
+      for (const card of internalPlayers[i]!.hand) {
+        if (card.suit === trumpSuit && RANK_ORDER[card.rank] < lowestTrumpRank) {
+          lowestTrumpRank = RANK_ORDER[card.rank];
+          attackerIdx = i;
+        }
+      }
+    }
+  }
   if (attackerIdx < 0) attackerIdx = (dealerIdx + 1) % internalPlayers.length;
   const defenderIdx = (attackerIdx + 1) % internalPlayers.length;
 

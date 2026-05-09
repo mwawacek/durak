@@ -18,9 +18,12 @@ file in the same change** so future sessions don't drift.
 - After the deal the **bottom card of the deck is revealed** — its suit becomes
   the trump for the rest of the game (`trumpSuit`). The trump card itself
   remains in the deck and is the last card to be drawn.
-- **First attacker:** the player holding the **8 of Hearts** (project-specific
-  choice; standard Durak uses lowest trump — we picked 8♥ for determinism in
-  testing). If no one holds 8♥, the player after the dealer attacks.
+- **First attacker:** standard Russian Durak rule — the player holding the
+  **lowest trump card in their hand**. If the deck is so small that no trump
+  was dealt to anyone (extreme edge case, mathematically impossible at
+  STARTING_HAND_SIZE=6 with the trump sitting at deck bottom but possible if
+  the engine is invoked with custom decks in tests), the fallback is the
+  player after the dealer.
 
 ## Roles per round
 
@@ -113,7 +116,7 @@ file in the same change** so future sessions don't drift.
   `finishedAt` is the most recent is named the Durak.
 - Implemented in `checkFinished` (engine).
 
-## Disconnect / reconnect
+## Disconnect / reconnect / forfeit
 
 - Players who disconnect are marked `isConnected: false` but keep their
   seat for `RECONNECT_GRACE_MS = 30_000`.
@@ -122,6 +125,10 @@ file in the same change** so future sessions don't drift.
 - After grace expires: lobby rooms drop the player; in-game rooms drop the
   player AND, if no connected member remains, the room is finished and the
   in-memory game state is freed.
+- **Forfeit (giving up mid-game)** is currently expressed as "close the
+  app and let the grace expire" — there is no explicit `LEAVE_GAME` event
+  in the protocol. Add one if/when single-player vs. group-of-bots becomes
+  a feature people use to escape losing positions.
 
 ## Implementation invariants worth knowing
 
@@ -138,6 +145,20 @@ file in the same change** so future sessions don't drift.
 - `MAX_TABLE_PAIRS`, `MIN_PLAYERS`, `MAX_PLAYERS`, `STARTING_HAND_SIZE`
   live in `@durak/shared` so engine, mobile, and bot agree.
 
+## Player count layout (mobile)
+
+- 2–3 players (1–2 opponents): seats are full-size (`size="normal"`,
+  100 px box width). Plenty of room.
+- 4 players (3 opponents): same.
+- 5–6 players (4–5 opponents): seats automatically switch to
+  `size="compact"` (smaller card-back stack, smaller avatar, narrower
+  box width 70–84 px) so they don't overlap on a 390 px screen.
+- The choice is in `apps/mobile/src/screens/GameScreen.tsx` (`seatSize`,
+  `seatBoxWidth`).
+- Opponent angle distribution is in
+  `apps/mobile/src/hooks/useTableLayout.ts` (`ANGLES_BY_COUNT`). Edit
+  there if seat positions need rebalancing.
+
 ## When to invoke this skill
 
 - About to change anything in `apps/backend/src/game/game.engine.ts`.
@@ -146,3 +167,4 @@ file in the same change** so future sessions don't drift.
 - Adding tests that need to construct realistic game states (use this as
   the spec of what "realistic" means).
 - Player reports a rule-feel bug ("this should/shouldn't have worked").
+- Rebalancing the seat layout / mobile UI for different player counts.

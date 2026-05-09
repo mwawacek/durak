@@ -2,6 +2,7 @@ import { ERROR_CODES } from '@durak/shared';
 import {
   GameRuleError,
   endTurn,
+  initGame,
   pendingConfirmationIds,
   playAttack,
   playDefense,
@@ -9,6 +10,80 @@ import {
   takeCards,
 } from './game.engine';
 import { c, state } from './_test-helpers';
+
+describe('initGame — first attacker', () => {
+  it('picks the player holding the lowest trump card', () => {
+    // Arrange — 3 players, hearts is trump (bottom of deck).
+    // p2's hand contains the 6♥ — the lowest trump that will be dealt.
+    const deck = [
+      // First 18 cards dealt round-robin (6 each): designed so p2 gets 6♥.
+      // Round 1
+      c('Ks'), c('Qd'), c('6h'), // p0=Ks, p1=Qd, p2=6h
+      // Round 2
+      c('Ad'), c('Jc'), c('7c'),
+      // Round 3
+      c('9s'), c('10d'), c('8s'),
+      // Round 4
+      c('9c'), c('Js'), c('7s'),
+      // Round 5
+      c('Qc'), c('Kd'), c('Qs'),
+      // Round 6
+      c('Ac'), c('10s'), c('8d'),
+      // Remaining → trump at bottom
+      c('Jh'),
+    ];
+
+    // Act
+    const result = initGame({
+      roomId: 'r1',
+      players: [
+        { id: 'p0', name: 'P0' },
+        { id: 'p1', name: 'P1' },
+        { id: 'p2', name: 'P2' },
+      ],
+      deck,
+      dealerIdx: 0,
+      now: 1,
+    });
+
+    // Assert
+    expect(result.trumpSuit).toBe('hearts');
+    expect(result.attackerIdx).toBe(2); // p2 holds the only trump dealt → goes first
+    expect(result.defenderIdx).toBe(0);
+  });
+
+  it('falls back to the player after the dealer when no trump was dealt', () => {
+    // Arrange — only one card in the deck (the trump itself); no trumps in hands.
+    const deck = [
+      c('Ks'), c('Qd'), c('Ac'), c('Jc'), // hands (2 each for two players)
+      c('Kd'), c('Qs'),
+      c('9s'), c('10d'),
+      c('Jd'), c('Qc'),
+      c('9d'), c('10s'),
+      c('Ad'), c('8d'),
+      c('Jh'), // bottom = trump
+    ];
+
+    // Act
+    const result = initGame({
+      roomId: 'r1',
+      players: [
+        { id: 'p0', name: 'P0' },
+        { id: 'p1', name: 'P1' },
+      ],
+      deck,
+      dealerIdx: 0,
+      now: 1,
+    });
+
+    // Assert
+    expect(result.trumpSuit).toBe('hearts');
+    // Neither hand has a heart (only the bottom trump card is hearts)
+    const handsHaveHearts = result.players.some((p) => p.hand.some((c2) => c2.suit === 'hearts'));
+    expect(handsHaveHearts).toBe(false);
+    expect(result.attackerIdx).toBe(1); // dealerIdx + 1
+  });
+});
 
 describe('playAttack', () => {
   it('places the card on the table and switches phase to defending', () => {

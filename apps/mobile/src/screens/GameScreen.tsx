@@ -13,7 +13,7 @@ import {
 import { useGameStore } from '../store/gameStore';
 import { emitAckOrToast } from '../services/socket';
 import { OvalTable } from '../components/OvalTable';
-import { PlayerSeat } from '../components/PlayerSeat';
+import { PlayerSeat, type SeatSize } from '../components/PlayerSeat';
 import { TrumpReservoir } from '../components/TrumpReservoir';
 import { BattleField } from '../components/BattleField';
 import { BrassButton } from '../components/BrassButton';
@@ -116,6 +116,11 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
     [game.players, playerId],
   );
   const seats = useOpponentSeats(opponents, game.attackerId, game.defenderId, geometry);
+
+  // Seat layout adapts to opponent count. With 4-5 opponents we shrink the
+  // box to keep them from overlapping on a 390 px screen.
+  const seatSize: SeatSize = opponents.length >= 4 ? 'compact' : 'normal';
+  const seatBoxWidth = opponents.length >= 5 ? 70 : opponents.length >= 4 ? 84 : 100;
 
   const isFullField = game.table.length >= 5;
   const battleCardW = isFullField ? 50 : 64;
@@ -230,9 +235,12 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
           {seats.map((seat) => (
             <View
               key={seat.player.id}
-              style={[styles.seatPos, { left: seat.x - 50, top: seat.y - 30 }]}
+              style={[
+                styles.seatPos,
+                { left: seat.x - seatBoxWidth / 2, top: seat.y - 30, width: seatBoxWidth },
+              ]}
             >
-              <PlayerSeat player={seat.player} role={seat.role} />
+              <PlayerSeat player={seat.player} role={seat.role} size={seatSize} />
             </View>
           ))}
 
@@ -378,7 +386,6 @@ const styles = StyleSheet.create({
   tableLayer: { position: 'absolute', top: 0, left: 0 },
   seatPos: {
     position: 'absolute',
-    width: 100,
     alignItems: 'center',
   },
   trumpPos: { position: 'absolute', left: 14 },
