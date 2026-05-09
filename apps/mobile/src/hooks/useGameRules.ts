@@ -1,10 +1,9 @@
 import { useMemo } from 'react';
 import {
   beats,
+  canPileOn,
   canRedirectWith,
   MAX_TABLE_PAIRS,
-  ranksOnTable,
-  tableFullyDefended,
   type GameStatePrivate,
   type PlayerPublic,
 } from '@durak/shared';
@@ -18,7 +17,6 @@ export interface GameRules {
   playableCardIds: Set<string>;
   /** Attacks (by id) that the currently selected hand card can defend against. Empty if no card selected. */
   candidateAttackIds: Set<string>;
-  allDefended: boolean;
   undefendedCount: number;
   /** True iff this player is one of the attackers whose Bito confirmation is still pending. */
   needsMyConfirmation: boolean;
@@ -71,17 +69,16 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
     }
 
     if (isAttacker || (!isDefender && game.table.length > 0)) {
-      if (game.table.length === 0 && isAttacker) {
-        for (const c of game.you.hand) ids.add(c.id);
-        return ids;
+      const defenderHand = defender?.handCount ?? 0;
+      for (const c of game.you.hand) {
+        if (canPileOn(c, game.table, defenderHand, MAX_TABLE_PAIRS)) {
+          // Opening attack from the main attacker is anything; pile-on must also
+          // come from an eligible attacker, but the engine still validates that.
+          // Highlighting "could be legal" cards even if the player isn't actually
+          // eligible is acceptable — they get a toast on the rejection.
+          ids.add(c.id);
+        }
       }
-      // No more pile-on once the table is full (engine cap).
-      if (game.table.length >= MAX_TABLE_PAIRS) return ids;
-      const tableRanks = ranksOnTable(game.table);
-      const undefendedCount = game.table.filter((p) => !p.defense).length;
-      const defenderCapacity = (defender?.handCount ?? 0) > undefendedCount;
-      if (!defenderCapacity) return ids;
-      for (const c of game.you.hand) if (tableRanks.has(c.rank)) ids.add(c.id);
     }
 
     return ids;
@@ -99,7 +96,6 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
     return ids;
   }, [game, isDefender, selectedCardId, redirectMode]);
 
-  const allDefended = tableFullyDefended(game.table);
   const undefendedCount = game.table.filter((p) => !p.defense).length;
 
   const pending = game.pendingConfirmations ?? [];
@@ -115,7 +111,6 @@ export const useGameRules = ({ game, playerId, selectedCardId, redirectMode }: A
     canRedirect,
     playableCardIds,
     candidateAttackIds,
-    allDefended,
     undefendedCount,
     needsMyConfirmation,
     awaitingFrom,

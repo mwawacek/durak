@@ -61,9 +61,21 @@ Mobile establishes a Socket.IO connection to the backend on app start (LobbyScre
 
 ## Testing approach
 
-No automated tests yet. Verify changes by:
-1. `npm run typecheck` (catches contract drift between shared/backend/mobile)
-2. Run backend + bot + mobile, play a round to "Durak!" alert.
+Jest unit tests live next to source as `*.spec.ts`. Conventions
+(AAA pattern, builders, what to test) are in
+`.claude/skills/testing/SKILL.md`. Rules reference is in
+`.claude/skills/durak-rules/SKILL.md`.
+
+```bash
+npm run test                           # all workspaces (rebuilds shared first)
+npm run test --workspace @durak/backend # engine + projection tests
+npm run test --workspace @durak/shared  # rules / helpers tests
+npm run typecheck                      # catches contract drift between shared/backend/mobile
+```
+
+In addition to tests, run a smoke game with the bot
+(`npm run bot -- TestBot --host-room`) before shipping any
+gameplay-affecting change.
 
 When adding socket events: change `packages/shared/src/events.ts` first, then both consumers will fail typecheck until updated. That's the feature — embrace it.
 

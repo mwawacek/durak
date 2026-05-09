@@ -6,8 +6,8 @@ import { colors } from '../theme/colors';
 
 interface Props {
   pairs: AttackPair[];
-  cardW?: number;
-  fullField?: boolean;
+  /** "md" → 64 px wide cards, "sm" → 44 px wide cards. */
+  size?: 'sm' | 'md';
   onAttackPress?: (attackCardId: string) => void;
   highlightedAttackIds?: Set<string>;
   style?: ViewStyle;
@@ -16,14 +16,16 @@ interface Props {
 /** Pairs grid (3 columns). Defended cards rotated; undefended ones get a pulsing dashed outline. */
 export const BattleField: React.FC<Props> = ({
   pairs,
-  cardW = 56,
-  fullField,
+  size = 'md',
   onAttackPress,
   highlightedAttackIds,
   style,
 }) => {
-  const gap = cardW * (fullField ? 0.18 : 0.25);
-  const pad = cardW * 0.18;
+  // Spacing is derived from the actual card width to keep cells from overlapping
+  // even at small sizes. Compact grid (sm) uses tighter gaps.
+  const cardW = size === 'sm' ? 44 : 64;
+  const gap = size === 'sm' ? 6 : 10;
+  const pad = 10;
   if (pairs.length === 0) {
     return <View style={[styles.wrap, { gap, padding: pad }, style]} />;
   }
@@ -34,6 +36,7 @@ export const BattleField: React.FC<Props> = ({
           <BattlePair
             key={p.attack.id}
             pair={p}
+            size={size}
             cardW={cardW}
             onPress={onAttackPress ? () => onAttackPress(p.attack.id) : undefined}
             highlighted={highlightedAttackIds?.has(p.attack.id)}
@@ -46,18 +49,23 @@ export const BattleField: React.FC<Props> = ({
 
 interface PairProps {
   pair: AttackPair;
+  size: 'sm' | 'md';
   cardW: number;
   onPress?: () => void;
   highlighted?: boolean;
 }
 
-const BattlePairImpl: React.FC<PairProps> = ({ pair, cardW, onPress, highlighted }) => {
+const BattlePairImpl: React.FC<PairProps> = ({ pair, size, cardW, onPress, highlighted }) => {
   const undefended = !pair.defense;
+  // Each cell holds an attack card with a defense card offset behind it.
+  // Width = card width plus the offset; height = card height plus the offset.
+  const cellW = cardW + cardW * 0.22;
+  const cellH = cardW * 1.45 + cardW * 0.28;
   return (
-    <View style={{ width: cardW * 1.15, height: cardW * 1.7, position: 'relative' }}>
+    <View style={{ width: cellW, height: cellH, position: 'relative' }}>
       <Card
         card={pair.attack}
-        size="md"
+        size={size}
         selected={highlighted}
         onPress={onPress}
         style={{ position: 'absolute', top: 0, left: 0 }}
@@ -65,7 +73,7 @@ const BattlePairImpl: React.FC<PairProps> = ({ pair, cardW, onPress, highlighted
       {pair.defense ? (
         <Card
           card={pair.defense}
-          size="md"
+          size={size}
           defended
           rotate={16}
           style={{ position: 'absolute', top: cardW * 0.28, left: cardW * 0.18 }}

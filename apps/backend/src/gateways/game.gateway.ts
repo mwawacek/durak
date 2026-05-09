@@ -107,15 +107,19 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.broadcastRoomState(room.id);
         continue;
       }
-      // In-game room: drop the player and abandon the room if everyone left.
-      const remaining = this.rooms.leave(room.id, playerId);
-      if (!remaining || remaining.members.every((m) => !m.isConnected)) {
-        this.games.remove(room.id);
-        if (remaining) this.rooms.finishGame(room.id);
-        this.broadcastRoomList();
-      } else {
-        this.broadcastRoomState(room.id);
-      }
+      // In-game room: a player who never came back can't be safely "removed"
+      // mid-game — the engine indexes (attackerIdx/defenderIdx, rotation,
+      // pile-on neighbours) all assume the player array is stable. Abandoning
+      // the game is the safest recovery: free the engine state, mark the room
+      // finished, notify everyone in the room, and drop them all.
+      this.games.remove(room.id);
+      this.server.to(room.id).emit(SOCKET_EVENTS.ERROR_MESSAGE, {
+        code: ERROR_CODES.INTERNAL_ERROR,
+        message: 'Spieler hat das Spiel verlassen — Tisch wird geschlossen.',
+      });
+      this.rooms.finishGame(room.id);
+      this.broadcastRoomList();
+      this.broadcastRoomState(room.id);
     }
     this.players.remove(playerId);
   }

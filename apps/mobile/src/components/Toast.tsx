@@ -11,26 +11,38 @@ interface Props {
 export const Toast: React.FC<Props> = ({ message, onDismiss, durationMs = 3000 }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const [visibleMessage, setVisibleMessage] = useState<string | null>(null);
-  const onDismissRef = useRef(onDismiss);
 
+  // Stable callback ref so this effect doesn't re-run when the parent re-renders.
+  const onDismissRef = useRef(onDismiss);
   useEffect(() => {
     onDismissRef.current = onDismiss;
   }, [onDismiss]);
 
+  // Generation token: a fade-out's completion callback must only fire if its
+  // own effect run is still the current one. Without this, a new message that
+  // arrives during the previous fade-out would be wiped by the stale callback.
+  const genRef = useRef(0);
+
   useEffect(() => {
     if (!message) return;
+    const myGen = ++genRef.current;
+
     setVisibleMessage(message);
+    opacity.setValue(0);
     Animated.timing(opacity, {
       toValue: 1,
       duration: 180,
       useNativeDriver: true,
     }).start();
+
     const t = setTimeout(() => {
       Animated.timing(opacity, {
         toValue: 0,
         duration: 220,
         useNativeDriver: true,
       }).start(() => {
+        // Stale callback (a newer message has arrived) — leave the new state alone.
+        if (genRef.current !== myGen) return;
         setVisibleMessage(null);
         onDismissRef.current();
       });

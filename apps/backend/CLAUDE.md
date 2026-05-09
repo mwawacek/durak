@@ -69,4 +69,22 @@ Sockets that drop are kept in their room for `RECONNECT_GRACE_MS = 30_000` (see 
 
 ## Testing
 
-No automated tests yet. Manual: bot opponent (`npm run bot -- TestBot --host-room`) is the canonical end-to-end test. When adding rule tweaks, write a one-off script under `apps/backend/scripts/` that runs `GameEngine` functions directly with a seeded state — pure functions make this trivial.
+Jest unit tests live next to source files as `*.spec.ts`. The engine
+spec in `src/game/game.engine.spec.ts` covers all rule mutators
+(playAttack, playDefense, redirectAttack, endTurn / Bito confirmation,
+takeCards, pendingConfirmationIds) plus the lowest-trump first-attacker
+rule. Builders in `src/game/_test-helpers.ts` (`c('7s')`, `player(i,
+{hand:[...]})`, `state({...})`) keep tests AAA-clean.
+
+```bash
+npm run test --workspace @durak/backend         # all engine specs
+npm run test --workspace @durak/backend -- -t "Bito"  # single test
+npm run test:watch --workspace @durak/backend   # watch mode
+```
+
+Conventions (AAA pattern, what to test / what not) are in
+`.claude/skills/testing/SKILL.md`.
+
+NestJS gateway/controller wiring is intentionally NOT unit-tested —
+covered by the bot smoke test (`npm run bot -- TestBot --host-room`)
+end-to-end.

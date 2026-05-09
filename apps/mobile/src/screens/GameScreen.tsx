@@ -103,13 +103,16 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
     awaitingFrom,
   } = rules;
 
-  // Clear stale selection if the selected card is no longer in our hand
-  // (e.g. after a server push that mutated the hand mid-tap).
+  // Clear stale selection if the selected card is no longer in our hand,
+  // or if redirect mode is set but we lost the right to redirect (e.g. after
+  // a server push made canRedirect false).
   useEffect(() => {
     if (selectedCardId && !game.you.hand.some((c) => c.id === selectedCardId)) {
       setSelection(NO_SELECTION);
+    } else if (redirectMode && !canRedirect) {
+      setSelection(NO_SELECTION);
     }
-  }, [game.you.hand, selectedCardId]);
+  }, [game.you.hand, selectedCardId, redirectMode, canRedirect]);
 
   const opponents = useMemo(
     () => game.players.filter((p) => p.id !== playerId),
@@ -122,8 +125,8 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
   const seatSize: SeatSize = opponents.length >= 4 ? 'compact' : 'normal';
   const seatBoxWidth = opponents.length >= 5 ? 70 : opponents.length >= 4 ? 84 : 100;
 
-  const isFullField = game.table.length >= 5;
-  const battleCardW = isFullField ? 50 : 64;
+  // Battle grid shrinks card size when the table fills up so 6 pairs fit.
+  const battleSize: 'sm' | 'md' = game.table.length >= 5 ? 'sm' : 'md';
 
   const playDefense = async (attackCardId: string, defenseCard: CardType) => {
     setBusy(true);
@@ -266,8 +269,7 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
           >
             <BattleField
               pairs={game.table}
-              cardW={battleCardW}
-              fullField={isFullField}
+              size={battleSize}
               onAttackPress={isDefender ? handleAttackTap : undefined}
               highlightedAttackIds={candidateAttackIds}
             />

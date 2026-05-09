@@ -37,16 +37,21 @@ export class PlayerService {
     }
 
     // Without DB: derive a stable id from the (case-insensitive) name so a
-    // dropped guest reconnecting under the same name reclaims their identity
-    // and the disconnect timer fires `clearTimeout` correctly. Friends-game
-    // collision risk is acceptable; production should require real auth.
-    const slug = trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'anon';
-    const id = persisted?.id ?? `guest-${slug}`;
+    // dropped guest reconnecting under the same name reclaims their identity.
+    // If a different socket is *already online* under that slug (i.e. two
+    // people happen to pick "Anna"), the second one gets a random suffix so
+    // they don't hijack the first's seat.
+    const slug =
+      trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'anon';
+    let id = persisted?.id ?? `guest-${slug}`;
 
-    // If this id was already online under a different socket, free its old entry.
-    const existing = this.onlinePlayers.get(id);
-    if (existing && existing.socketId !== socketId) {
-      this.socketToPlayer.delete(existing.socketId);
+    if (!persisted) {
+      const existing = this.onlinePlayers.get(id);
+      if (existing && existing.socketId !== socketId) {
+        // Real collision (different live socket): mint a new id with a suffix.
+        const suffix = Math.random().toString(36).slice(2, 6);
+        id = `guest-${slug}-${suffix}`;
+      }
     }
 
     this.onlinePlayers.set(id, { id, name: trimmed, socketId });

@@ -44,3 +44,24 @@ export const canRedirectWith = (
   const targetRank = table[0]!.attack.rank;
   return hand.some((c) => c.rank === targetRank);
 };
+
+/**
+ * Whether a single card may legally be added to the table as a pile-on.
+ * Mirrors the engine's `playAttack` capacity / rank checks (minus the
+ * caller-identity check, which the engine still owns).
+ *
+ * Used by mobile to highlight playable pile-on cards without re-implementing
+ * the rule.
+ */
+export const canPileOn = (
+  card: Card,
+  table: AttackPair[],
+  defenderHandCount: number,
+  maxTablePairs: number,
+): boolean => {
+  if (table.length === 0) return true; // first card of the round — anything goes
+  if (table.length >= maxTablePairs) return false;
+  const undefendedCount = table.filter((p) => !p.defense).length;
+  if (undefendedCount >= defenderHandCount) return false;
+  return ranksOnTable(table).has(card.rank);
+};

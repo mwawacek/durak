@@ -20,13 +20,17 @@ export interface OpponentSeat {
   y: number;
 }
 
-/** Angles (deg, 0=right, -90=top) for opponents distributed across the upper rim. */
+/**
+ * Angles (deg, 0=right, -90=top) for opponents distributed across the upper rim.
+ * Constrained so leftmost/rightmost seats don't clip past the screen edges on a
+ * 390 px iPhone.
+ */
 const ANGLES_BY_COUNT: Record<number, number[]> = {
   1: [-90],
   2: [-110, -70],
   3: [-130, -90, -50],
-  4: [-135, -90, -45, 0],
-  5: [-150, -110, -70, -30, 10],
+  4: [-140, -110, -70, -40],
+  5: [-150, -120, -90, -60, -30],
 };
 
 /** Geometry of the oval table — depends only on screen dimensions. */

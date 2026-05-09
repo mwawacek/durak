@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import type { PlayerPublic } from '@durak/shared';
 import { Card } from './Card';
 import { RingedAvatar } from './RingedAvatar';
-import { colors, presets, radii } from '../theme/colors';
+import { colors, radii } from '../theme/colors';
 
 export type SeatRole = 'attacker' | 'defender' | 'wait';
 
