@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import {
@@ -33,6 +33,12 @@ type Selection =
 
 const NO_SELECTION: Selection = { kind: 'none' };
 
+// Bottom strip layout — single source of truth so Hand height + Action row
+// height + buffers add up to the geometry hook's `reservedBottom`.
+const HAND_BLOCK_H = 168; // lg cards (116) + paddingTop (18) + paddingBottom (24) + fan lift (~10)
+const ACTION_BLOCK_H = 64; // BrassButton min-height (48) + vertical margins
+const BANNER_BLOCK_H = 48; // role banner above the action row
+
 export const GameScreen: React.FC<Props> = ({ route, navigation }) => {
   const game = useGameStore((s) => s.game);
   if (!game) {
@@ -56,16 +62,17 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
   const lastError = useGameStore((s) => s.lastError);
   const setError = useGameStore((s) => s.setError);
 
+  const insets = useSafeAreaInsets();
+  const reservedBottom = HAND_BLOCK_H + ACTION_BLOCK_H + BANNER_BLOCK_H + insets.bottom;
+  const geometry = useTableGeometry({ topInset: insets.top, reservedBottom });
+
   const [selection, setSelection] = useState<Selection>(NO_SELECTION);
-  // busy: useRef for the synchronous double-tap guard, useState for the visual flag.
   const busyRef = useRef(false);
   const [busyVisual, setBusyVisual] = useState(false);
   const setBusy = (b: boolean) => {
     busyRef.current = b;
     setBusyVisual(b);
   };
-
-  const geometry = useTableGeometry();
 
   useEffect(() => {
     setError(null);
@@ -103,9 +110,6 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
     awaitingFrom,
   } = rules;
 
-  // Clear stale selection if the selected card is no longer in our hand,
-  // or if redirect mode is set but we lost the right to redirect (e.g. after
-  // a server push made canRedirect false).
   useEffect(() => {
     if (selectedCardId && !game.you.hand.some((c) => c.id === selectedCardId)) {
       setSelection(NO_SELECTION);
@@ -120,12 +124,9 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
   );
   const seats = useOpponentSeats(opponents, game.attackerId, game.defenderId, geometry);
 
-  // Seat layout adapts to opponent count. With 4-5 opponents we shrink the
-  // box to keep them from overlapping on a 390 px screen.
   const seatSize: SeatSize = opponents.length >= 4 ? 'compact' : 'normal';
   const seatBoxWidth = opponents.length >= 5 ? 70 : opponents.length >= 4 ? 84 : 100;
 
-  // Battle grid shrinks card size when the table fills up so 6 pairs fit.
   const battleSize: 'sm' | 'md' = game.table.length >= 5 ? 'sm' : 'md';
 
   const playDefense = async (attackCardId: string, defenseCard: CardType) => {
@@ -219,6 +220,11 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
     needsMyConfirmation,
   });
 
+  // Trump and discard live INSIDE the felt area, near the bottom of the oval
+  // (above the bottom rim). They never compete with seats, which sit on the
+  // upper rim, even with 5 opponents.
+  const insideY = geometry.cy + geometry.ry - 80;
+
   return (
     <View style={styles.root}>
       <LinearGradient
@@ -226,90 +232,135 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
         style={StyleSheet.absoluteFill}
       />
 
-      <View style={[styles.tableLayer, { width: geometry.tableW, height: geometry.tableH }]}>
+      {/* Table layer — sits below safe-area top */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          top: geometry.tableTop,
+          width: geometry.tableW,
+          height: geometry.tableH,
+        }}
+        pointerEvents="box-none"
+      >
         <OvalTable cx={geometry.cx} cy={geometry.cy} rx={geometry.rx} ry={geometry.ry} />
-      </View>
 
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+        {seats.map((seat) => (
+          <View
+            key={seat.player.id}
+            style={[
+              styles.seatPos,
+              { left: seat.x - seatBoxWidth / 2, top: seat.y - 30, width: seatBoxWidth },
+            ]}
+          >
+            <PlayerSeat player={seat.player} role={seat.role} size={seatSize} />
+          </View>
+        ))}
+
+        {/* Trump reservoir — bottom-left of the felt, away from upper-rim seats */}
+        <View style={{ position: 'absolute', left: 14, top: insideY }}>
+          <TrumpReservoir
+            trumpCard={game.trumpCard}
+            trumpSuit={game.trumpSuit}
+            deckCount={game.deckCount}
+            cardW={42}
+          />
+        </View>
+
+        {/* Discard — bottom-right of the felt */}
+        <View style={{ position: 'absolute', right: 14, top: insideY + 18, alignItems: 'center', gap: 4 }}>
+          <Text style={styles.discardLabel}>Abwurf</Text>
+          <View style={[presets.goldPill, styles.discardBadge]}>
+            <Text style={styles.discardCount}>{game.discardCount}</Text>
+          </View>
+        </View>
+
+        {/* Battle field — center of the felt */}
         <View
-          style={[styles.tableLayer, { width: geometry.tableW, height: geometry.tableH }]}
+          style={[
+            styles.battlePos,
+            { left: geometry.cx - 110, top: geometry.cy - 80 },
+          ]}
           pointerEvents="box-none"
         >
-          {seats.map((seat) => (
-            <View
-              key={seat.player.id}
-              style={[
-                styles.seatPos,
-                { left: seat.x - seatBoxWidth / 2, top: seat.y - 30, width: seatBoxWidth },
-              ]}
-            >
-              <PlayerSeat player={seat.player} role={seat.role} size={seatSize} />
+          <BattleField
+            pairs={game.table}
+            size={battleSize}
+            onAttackPress={isDefender ? handleAttackTap : undefined}
+            highlightedAttackIds={candidateAttackIds}
+          />
+        </View>
+      </View>
+
+      {/* Bottom strip: banner → action row (with you-plate) → hand → safe-area inset */}
+      <View
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: insets.bottom,
+          height: BANNER_BLOCK_H + ACTION_BLOCK_H + HAND_BLOCK_H,
+        }}
+        pointerEvents="box-none"
+      >
+        {/* Banner — full-width, prominent */}
+        <View style={[styles.banner, { height: BANNER_BLOCK_H }]}>
+          <Text style={styles.bannerLine} numberOfLines={1}>
+            {banner.line}
+          </Text>
+          <Text style={styles.bannerSub} numberOfLines={1}>
+            {banner.sub}
+          </Text>
+        </View>
+
+        {/* Action row — Du-plate left, BrassButtons centered/right */}
+        <View style={[styles.actionsRow, { height: ACTION_BLOCK_H }]}>
+          <View style={[presets.goldPill, styles.youPlate]}>
+            <RingedAvatar initials={(playerName?.[0] ?? 'D').toUpperCase()} active={isAttacker || isDefender || needsMyConfirmation} size={26} />
+            <View>
+              <Text style={styles.youName} numberOfLines={1}>
+                {playerName ?? 'Du'}
+              </Text>
+              <Text
+                style={[styles.youRole, { color: youRoleColor(isAttacker, isDefender, needsMyConfirmation) }]}
+                numberOfLines={1}
+              >
+                {youRoleLabel(isAttacker, isDefender, needsMyConfirmation)}
+              </Text>
             </View>
-          ))}
-
-          <View style={[styles.trumpPos, { top: geometry.cy - 60 }]}>
-            <TrumpReservoir
-              trumpCard={game.trumpCard}
-              trumpSuit={game.trumpSuit}
-              deckCount={game.deckCount}
-              cardW={42}
-            />
           </View>
 
-          <View style={[styles.discardPos, { top: geometry.cy - 30 }]}>
-            <Text style={styles.discardLabel}>Abwurf</Text>
-            <View style={[presets.goldPill, styles.discardBadge]}>
-              <Text style={styles.discardCount}>{game.discardCount}</Text>
-            </View>
-          </View>
-
-          <View
-            style={[styles.battlePos, { left: geometry.cx - 110, top: geometry.cy - 80 }]}
-            pointerEvents="box-none"
-          >
-            <BattleField
-              pairs={game.table}
-              size={battleSize}
-              onAttackPress={isDefender ? handleAttackTap : undefined}
-              highlightedAttackIds={candidateAttackIds}
-            />
+          <View style={styles.actionsButtons}>
+            {canEndTurn ? (
+              <BrassButton
+                variant="primary"
+                label="Fertig"
+                onPress={handleEndTurn}
+                disabled={busyVisual}
+              />
+            ) : null}
+            {canTake ? (
+              <BrassButton
+                variant="danger"
+                label="Nehmen"
+                badge={undefendedCount > 0 ? `+${undefendedCount}` : undefined}
+                onPress={handleTake}
+                disabled={busyVisual}
+              />
+            ) : null}
+            {canRedirect ? (
+              <BrassButton
+                variant={redirectMode ? 'secondary-active' : 'secondary'}
+                label={redirectMode ? 'Abbrechen' : 'Weiterschieben'}
+                onPress={() => setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' })}
+                disabled={busyVisual}
+              />
+            ) : null}
           </View>
         </View>
 
-        <View style={[styles.banner, { top: geometry.tableH - 8 }]}>
-          <Text style={styles.bannerLine}>{banner.line}</Text>
-          <Text style={styles.bannerSub}>{banner.sub}</Text>
-        </View>
-
-        <View style={styles.actionsRow}>
-          {canEndTurn ? (
-            <BrassButton
-              variant="primary"
-              label="Fertig"
-              onPress={handleEndTurn}
-              disabled={busyVisual}
-            />
-          ) : null}
-          {canTake ? (
-            <BrassButton
-              variant="danger"
-              label="Nehmen"
-              badge={undefendedCount > 0 ? `+${undefendedCount}` : undefined}
-              onPress={handleTake}
-              disabled={busyVisual}
-            />
-          ) : null}
-          {canRedirect ? (
-            <BrassButton
-              variant={redirectMode ? 'secondary-active' : 'secondary'}
-              label={redirectMode ? 'Abbrechen' : 'Weiterschieben'}
-              onPress={() => setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' })}
-              disabled={busyVisual}
-            />
-          ) : null}
-        </View>
-
-        <View style={styles.handRow} pointerEvents="box-none">
+        {/* Hand — full width */}
+        <View style={{ height: HAND_BLOCK_H }} pointerEvents="box-none">
           <PlayerHand
             hand={game.you.hand}
             trumpSuit={game.trumpSuit}
@@ -318,21 +369,25 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
             playableIds={playableCardIds}
           />
         </View>
+      </View>
 
-        <View style={[presets.goldPill, styles.youPlate]}>
-          <RingedAvatar initials={(playerName?.[0] ?? 'D').toUpperCase()} active />
-          <View>
-            <Text style={styles.youName}>Du</Text>
-            <Text style={styles.youRole}>
-              {isDefender ? 'VERTEIDIGUNG' : isAttacker ? 'ANGRIFF' : 'WARTEN'}
-            </Text>
-          </View>
-        </View>
-
-        <Toast message={lastError} onDismiss={() => setError(null)} />
-      </SafeAreaView>
+      <Toast message={lastError} onDismiss={() => setError(null)} topOffset={insets.top + 8} />
     </View>
   );
+};
+
+const youRoleLabel = (isAttacker: boolean, isDefender: boolean, needsConfirm: boolean): string => {
+  if (needsConfirm) return 'BITO';
+  if (isDefender) return 'VERTEIDIGUNG';
+  if (isAttacker) return 'ANGRIFF';
+  return 'WARTEN';
+};
+
+const youRoleColor = (isAttacker: boolean, isDefender: boolean, needsConfirm: boolean): string => {
+  if (needsConfirm) return colors.goldLight;
+  if (isDefender) return colors.defendingGreen;
+  if (isAttacker) return colors.redCount;
+  return colors.creamDim;
 };
 
 const buildBanner = (args: {
@@ -382,16 +437,9 @@ const buildBanner = (args: {
 
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
-  safe: { flex: 1 },
   center: { justifyContent: 'center', alignItems: 'center' },
   loadingText: { color: colors.creamDim, fontFamily: fonts.serif, fontSize: 16 },
-  tableLayer: { position: 'absolute', top: 0, left: 0 },
-  seatPos: {
-    position: 'absolute',
-    alignItems: 'center',
-  },
-  trumpPos: { position: 'absolute', left: 14 },
-  discardPos: { position: 'absolute', right: 14, alignItems: 'center', gap: 4 },
+  seatPos: { position: 'absolute', alignItems: 'center' },
   discardLabel: {
     fontSize: 8,
     color: colors.goldLight,
@@ -408,16 +456,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  banner: { position: 'absolute', left: 0, right: 0, alignItems: 'center' },
+  banner: {
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   bannerLine: {
     fontFamily: fonts.serif,
-    fontSize: 19,
+    fontSize: 20,
     fontWeight: '700',
     color: colors.cream,
     letterSpacing: -0.2,
     textShadowColor: colors.textShadow,
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+    textAlign: 'center',
   },
   bannerSub: {
     fontSize: 9,
@@ -425,28 +478,31 @@ const styles = StyleSheet.create({
     letterSpacing: 2.5,
     textTransform: 'uppercase',
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 3,
+    textAlign: 'center',
   },
   actionsRow: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 220,
     flexDirection: 'row',
-    justifyContent: 'center',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
     gap: 12,
   },
-  handRow: { position: 'absolute', left: 0, right: 0, bottom: 0 },
+  actionsButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    justifyContent: 'flex-end',
+  },
   youPlate: {
-    position: 'absolute',
-    left: 12,
-    bottom: 14,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
     paddingLeft: 4,
     paddingRight: 12,
     paddingVertical: 4,
+    flexShrink: 0,
   },
   youName: {
     color: colors.creamSoft,
@@ -454,9 +510,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontFamily: fonts.serif,
     lineHeight: 14,
+    maxWidth: 80,
   },
   youRole: {
-    color: colors.defendingGreen,
     fontSize: 8,
     letterSpacing: 1.5,
     fontWeight: '700',

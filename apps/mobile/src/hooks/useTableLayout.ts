@@ -3,13 +3,18 @@ import { Dimensions } from 'react-native';
 import type { PlayerPublic } from '@durak/shared';
 
 export interface TableGeometry {
+  /** Width of the table layer (= screen width). */
   tableW: number;
+  /** Height of the table layer in screen-pixels (after subtracting safe-area top + bottom-reserved space). */
   tableH: number;
+  /** Y offset of the table layer from screen top (= safe-area top inset). */
+  tableTop: number;
+  /** Ellipse center within the table layer's local coords. */
   cx: number;
   cy: number;
   rx: number;
   ry: number;
-  /** Convert an angle (degrees, 0=right, -90=top) into an absolute (x,y) on the rim. */
+  /** Convert an angle (degrees, 0=right, -90=top) into an absolute (x,y) within the table layer. */
   pointOnRim(angleDeg: number): { x: number; y: number };
 }
 
@@ -33,12 +38,23 @@ const ANGLES_BY_COUNT: Record<number, number[]> = {
   5: [-150, -120, -90, -60, -30],
 };
 
-/** Geometry of the oval table — depends only on screen dimensions. */
-export const useTableGeometry = (): TableGeometry => {
+interface GeometryArgs {
+  /** Top safe-area inset (notch / Dynamic Island clearance). */
+  topInset: number;
+  /** Vertical pixels reserved at the bottom for banner + actions + hand + bottom safe area. */
+  reservedBottom: number;
+}
+
+/**
+ * Geometry of the oval table. The table layer starts below the top safe area
+ * and shrinks to leave `reservedBottom` for the bottom UI strip — so seats and
+ * the felt always sit in the visible, non-system region of the screen.
+ */
+export const useTableGeometry = ({ topInset, reservedBottom }: GeometryArgs): TableGeometry => {
   return useMemo(() => {
     const screen = Dimensions.get('window');
     const tableW = screen.width;
-    const tableH = screen.height * 0.62;
+    const tableH = Math.max(280, screen.height - topInset - reservedBottom);
     const cx = tableW * 0.5;
     const cy = tableH * 0.42;
     const rx = tableW * 0.46;
@@ -46,6 +62,7 @@ export const useTableGeometry = (): TableGeometry => {
     return {
       tableW,
       tableH,
+      tableTop: topInset,
       cx,
       cy,
       rx,
@@ -55,7 +72,7 @@ export const useTableGeometry = (): TableGeometry => {
         return { x: cx + rx * Math.cos(rad), y: cy + ry * Math.sin(rad) };
       },
     };
-  }, []);
+  }, [topInset, reservedBottom]);
 };
 
 /** Resolves opponents into seats with angle-based positions and current role. */

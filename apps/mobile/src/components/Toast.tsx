@@ -6,9 +6,11 @@ interface Props {
   message: string | null;
   onDismiss: () => void;
   durationMs?: number;
+  /** Distance from the top of the screen (use safe-area top inset). */
+  topOffset?: number;
 }
 
-export const Toast: React.FC<Props> = ({ message, onDismiss, durationMs = 3000 }) => {
+export const Toast: React.FC<Props> = ({ message, onDismiss, durationMs = 3000, topOffset = 8 }) => {
   const opacity = useRef(new Animated.Value(0)).current;
   const [visibleMessage, setVisibleMessage] = useState<string | null>(null);
 
@@ -53,7 +55,7 @@ export const Toast: React.FC<Props> = ({ message, onDismiss, durationMs = 3000 }
   if (!visibleMessage) return null;
 
   return (
-    <Animated.View style={[styles.toast, { opacity }]} pointerEvents="none">
+    <Animated.View style={[styles.toast, { top: topOffset, opacity }]} pointerEvents="none">
       <Text style={styles.text}>{visibleMessage}</Text>
     </Animated.View>
   );
@@ -62,7 +64,6 @@ export const Toast: React.FC<Props> = ({ message, onDismiss, durationMs = 3000 }
 const styles = StyleSheet.create({
   toast: {
     position: 'absolute',
-    top: spacing(2),
     left: spacing(4),
     right: spacing(4),
     backgroundColor: 'rgba(20,24,26,0.95)',
