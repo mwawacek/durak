@@ -119,15 +119,10 @@ const main = async () => {
     const move = pickMove(g, state.me?.id, state.roomId);
     if (!move) return;
 
-    // Give human attackers a generous pile-on window before announcing TAKE.
-    // Without this, bot's TAKE_CARDS races a human's PLAY_CARD and the
-    // human's pile-on becomes a fresh attack on the next round instead of
-    // being collected — which looks exactly like "die letzte Karte wurde
-    // nicht aufgenommen".
-    if (move.event === SOCKET_EVENTS.TAKE_CARDS) {
-      await wait(2500 + Math.random() * 1000);
-      if (state.gen !== myGen) return; // human reacted in time — re-evaluate on the new state
-    }
+    // The server now auto-takes when the defender can't beat anything and
+    // pile-on is exhausted, so an explicit bot TAKE_CARDS is mostly a
+    // belt-and-braces fallback. No extra delay needed — server fires
+    // auto-take after the attacker's PLAY_CARD already.
 
     log('→', move.event, move.payload.card ? `${move.payload.card.rank}${move.payload.card.suit[0].toUpperCase()}` : '');
     try {

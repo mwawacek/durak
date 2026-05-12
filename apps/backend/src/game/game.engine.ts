@@ -121,6 +121,68 @@ const tryAutoCommit = (s: GameStateInternal): void => {
   }
 };
 
+/**
+ * Indices of attackers who still hold a pile-on-capable card AND haven't
+ * confirmed Bito. If empty, no more attacks can land on the table.
+ */
+const pileOnCapableIndices = (s: GameStateInternal): Set<number> => {
+  const eligible = neighborAttackers(s);
+  const out = new Set<number>();
+  const defender = s.players[s.defenderIdx];
+  if (!defender || defender.hand.length === 0) return out;
+  if (s.table.length >= MAX_TABLE_PAIRS) return out;
+  for (const idx of eligible) {
+    if (s.passConfirmations.has(idx)) continue;
+    const player = s.players[idx]!;
+    if (player.hasFinished) continue;
+    if (playerHasPileOnCard(player, s.table)) out.add(idx);
+  }
+  return out;
+};
+
+const defenderCanBeatAnyUndefended = (s: GameStateInternal): boolean => {
+  const defender = s.players[s.defenderIdx];
+  if (!defender) return false;
+  for (const pair of s.table) {
+    if (pair.defense) continue;
+    for (const card of defender.hand) {
+      if (beats(pair.attack, card, s.trumpSuit)) return true;
+    }
+  }
+  return false;
+};
+
+const commitTake = (s: GameStateInternal): void => {
+  const defender = s.players[s.defenderIdx]!;
+  for (const pair of s.table) {
+    defender.hand.push(pair.attack);
+    if (pair.defense) defender.hand.push(pair.defense);
+  }
+  s.table = [];
+  refillHands(s, s.attackerIdx);
+  rotateAfterFailure(s);
+};
+
+/**
+ * If the defender has at least one undefended attack they cannot beat AND no
+ * eligible attacker can pile on more cards, the round is stuck — the defender
+ * has only one legal move (Take), so the server commits it automatically.
+ *
+ * The defender still has agency in two cases:
+ *   1. They *could* defend (just choose not to) — auto-take won't trigger.
+ *   2. They could redirect — the redirect rule short-circuits this check by
+ *      requiring uniform-rank table with no defenses played; once any defense
+ *      lands, redirect is off the table, so this auto-take applies.
+ */
+const tryAutoTake = (s: GameStateInternal): void => {
+  if (s.table.length === 0) return;
+  const undefendedCount = s.table.filter((p) => !p.defense).length;
+  if (undefendedCount === 0) return; // nothing to take
+  if (defenderCanBeatAnyUndefended(s)) return; // defender still has a move
+  if (pileOnCapableIndices(s).size > 0) return; // more pile-ons may still come
+  commitTake(s);
+};
+
 type Role = 'attacker' | 'defender' | 'any-attacker';
 
 const requireTurn = (
@@ -247,6 +309,7 @@ export const playAttack = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
+  tryAutoTake(s);
   checkFinished(s);
   return s;
 };
@@ -276,6 +339,9 @@ export const playDefense = (
   // If the table is now fully defended and no eligible attacker can pile on,
   // commit the round immediately — nothing to wait for.
   tryAutoCommit(s);
+  // After a partial defense, the *remaining* undefended attacks may all be
+  // unbeatable for the defender. If pile-on is also exhausted, auto-take.
+  tryAutoTake(s);
   checkFinished(s);
   return s;
 };
@@ -330,6 +396,7 @@ export const redirectAttack = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
+  tryAutoTake(s);
   checkFinished(s);
   return s;
 };
@@ -357,6 +424,7 @@ export const endTurn = (state: GameStateInternal, playerId: string): GameStateIn
 
   s.passConfirmations.add(playerIdx);
   tryAutoCommit(s);
+  tryAutoTake(s);
   checkFinished(s);
   return s;
 };

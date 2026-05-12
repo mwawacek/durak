@@ -93,10 +93,28 @@ file in the same change** so future sessions don't drift.
 - Turn rotates: the defender is **skipped** for the next round; the next
   active player after the (former) defender becomes the new attacker.
 - Implemented in `takeCards` (engine) and `rotateAfterFailure`.
-- Bot (`tools/bot.mjs`) deliberately delays its TAKE_CARDS emit by 2.5–3.5s
-  with a generation-token guard so that human pile-on attacks can land first
-  (otherwise the human's late pile-on becomes the opening attack of the next
-  round instead of being collected).
+
+### Auto-take
+
+The server commits a take automatically when the defender has zero legal
+moves left:
+
+- At least one undefended attack on the table, AND
+- Defender holds no card in hand that beats any undefended attack
+  (`defenderCanBeatAnyUndefended` is false), AND
+- No eligible attacker has a pile-on-capable card
+  (`pileOnCapableIndices(s).size === 0`).
+
+Implemented in `tryAutoTake(s)`. Called from `playAttack`, `playDefense`,
+`redirectAttack`, and `endTurn` — i.e. after every event that might bring
+the round into a stuck state. Defender keeps agency in two cases:
+
+1. They *could* defend but choose to take strategically → must press
+   "Nehmen" manually (auto-take won't fire because
+   `defenderCanBeatAnyUndefended` is still true).
+2. They could redirect (Weiterschieben) → handled separately; redirect
+   precondition (uniform-rank, no defenses yet) is independent of
+   auto-take.
 
 ## Refill order
 

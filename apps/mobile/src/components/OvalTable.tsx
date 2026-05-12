@@ -1,9 +1,12 @@
 import React, { memo } from 'react';
-import { View } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { colors, radii } from '../theme/colors';
+import Svg, { Defs, Ellipse, RadialGradient, Stop } from 'react-native-svg';
+import { colors } from '../theme/colors';
 
 interface Props {
+  /** Width of the SVG canvas — typically the table-layer width. */
+  width: number;
+  /** Height of the SVG canvas. */
+  height: number;
   cx: number;
   cy: number;
   rx: number;
@@ -11,74 +14,82 @@ interface Props {
 }
 
 /**
- * Oval mahogany table: outer wood lip, double gold rail, dark forest felt center.
- * Positions are absolute within the parent. cx/cy = ellipse center, rx/ry = radii.
- * Memoized — only re-renders when geometry changes (i.e. screen size).
+ * Oval mahogany table rendered with real SVG ellipses + radial gradients.
+ * (RN's `borderRadius: 9999` on a non-square View produces a stadium shape,
+ * not an ellipse — hence SVG.)
+ *
+ * Layers, outer → inner:
+ *   1. Wood lip with radial highlight from upper centre
+ *   2. Outer gold rail (thick)
+ *   3. Inner gold rail (hairline)
+ *   4. Felt with darker radial vignette
  */
-const OvalTableImpl: React.FC<Props> = ({ cx, cy, rx, ry }) => {
+const OvalTableImpl: React.FC<Props> = ({ width, height, cx, cy, rx, ry }) => {
   return (
-    <>
-      <LinearGradient
-        colors={[colors.woodHighlight, colors.woodMid, colors.woodDark]}
-        style={{
-          position: 'absolute',
-          left: cx - rx,
-          top: cy - ry,
-          width: rx * 2,
-          height: ry * 2,
-          borderRadius: radii.oval,
-        }}
+    <Svg
+      width={width}
+      height={height}
+      style={{ position: 'absolute', left: 0, top: 0 }}
+      pointerEvents="none"
+    >
+      <Defs>
+        <RadialGradient id="wood" cx="50%" cy="30%" rx="70%" ry="70%" fx="50%" fy="30%">
+          <Stop offset="0%" stopColor={colors.woodHighlight} />
+          <Stop offset="60%" stopColor={colors.woodMid} />
+          <Stop offset="100%" stopColor={colors.woodDark} />
+        </RadialGradient>
+        <RadialGradient id="felt" cx="50%" cy="35%" rx="65%" ry="60%" fx="50%" fy="35%">
+          <Stop offset="0%" stopColor={colors.felt} />
+          <Stop offset="60%" stopColor={colors.feltMid} />
+          <Stop offset="100%" stopColor={colors.feltDark} />
+        </RadialGradient>
+      </Defs>
+
+      {/* Wood lip */}
+      <Ellipse cx={cx} cy={cy} rx={rx} ry={ry} fill="url(#wood)" />
+
+      {/* Outer gold rail (thick) */}
+      <Ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx - 8}
+        ry={ry - 8}
+        stroke={colors.goldRail}
+        strokeWidth={1.4}
+        fill="none"
       />
-      <View
-        style={{
-          position: 'absolute',
-          left: cx - rx + 8,
-          top: cy - ry + 8,
-          width: (rx - 8) * 2,
-          height: (ry - 8) * 2,
-          borderRadius: radii.oval,
-          borderWidth: 1.2,
-          borderColor: colors.goldRail,
-        }}
+
+      {/* Inner gold rail (hairline) */}
+      <Ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx - 14}
+        ry={ry - 14}
+        stroke={colors.goldRailFaint}
+        strokeWidth={0.6}
+        fill="none"
       />
-      <View
-        style={{
-          position: 'absolute',
-          left: cx - rx + 14,
-          top: cy - ry + 14,
-          width: (rx - 14) * 2,
-          height: (ry - 14) * 2,
-          borderRadius: radii.oval,
-          borderWidth: 0.5,
-          borderColor: colors.goldRailFaint,
-        }}
+
+      {/* Felt centre */}
+      <Ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx - 18}
+        ry={ry - 18}
+        fill="url(#felt)"
       />
-      <LinearGradient
-        colors={[colors.felt, colors.feltMid, colors.feltDark]}
-        start={{ x: 0.5, y: 0 }}
-        end={{ x: 0.5, y: 1 }}
-        style={{
-          position: 'absolute',
-          left: cx - rx + 18,
-          top: cy - ry + 18,
-          width: (rx - 18) * 2,
-          height: (ry - 18) * 2,
-          borderRadius: radii.oval,
-        }}
+
+      {/* Subtle inner shadow ring on the felt */}
+      <Ellipse
+        cx={cx}
+        cy={cy}
+        rx={rx - 18}
+        ry={ry - 18}
+        stroke={colors.feltShadow}
+        strokeWidth={1}
+        fill="none"
       />
-      <View
-        style={{
-          position: 'absolute',
-          left: cx - rx + 18,
-          top: cy - ry + 18,
-          width: (rx - 18) * 2,
-          height: (ry - 18) * 2,
-          borderRadius: radii.oval,
-          borderWidth: 1,
-          borderColor: colors.feltShadow,
-        }}
-      />
-    </>
+    </Svg>
   );
 };
 

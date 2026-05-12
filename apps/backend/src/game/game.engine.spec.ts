@@ -135,11 +135,13 @@ describe('playAttack', () => {
   });
 
   it('accepts a pile-on whose rank matches a defense card on the table', () => {
-    // Arrange — table has 7♠ defended with J♥; 7 OR J are now pile-on-able
+    // Arrange — table has 7♠ defended with J♥; 7 OR J are now pile-on-able.
+    // Defender holds Q♣ (beats J♣) so auto-take does NOT fire and we can
+    // observe the pile-on sitting on the table.
     const s = state({
       players: [
         { id: 'p0', hand: ['Jc'] },
-        { id: 'p1', hand: ['Ad', '8d'] }, // defender has capacity for 1 more attack
+        { id: 'p1', hand: ['Qc', '8d', 'Kh'] },
       ],
       trumpSuit: 'hearts',
       table: [{ attack: '7s', defense: 'Jh' }],
@@ -383,6 +385,77 @@ describe('endTurn — Bito confirmation', () => {
 
     // Act + Assert
     expect(() => endTurn(s, 'p0')).toThrow('Table not fully defended');
+  });
+});
+
+describe('tryAutoTake (via playAttack)', () => {
+  it('auto-takes when defender cannot beat the attack and no one can pile on', () => {
+    // Arrange — 2-player game. p0 attacks with K♠, p1 has only 6♣ (no beat).
+    // p0 has no other matching-rank card to pile on.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Ks', '7d'] },
+        { id: 'p1', hand: ['6c', '8d'] },
+      ],
+      trumpSuit: 'hearts',
+      deck: ['Js', 'Qs', '9d'],
+      attackerIdx: 0,
+      defenderIdx: 1,
+      phase: 'attacking',
+    });
+
+    // Act
+    const next = playAttack(s, 'p0', c('Ks'));
+
+    // Assert — auto-took: p1 has the K♠ in hand, table empty, rotation past defender
+    expect(next.table).toEqual([]);
+    expect(next.players[1]!.hand).toEqual(expect.arrayContaining([c('Ks')]));
+    expect(next.attackerIdx).toBe(0); // skip defender (p1), next active is p0
+    expect(next.defenderIdx).toBe(1);
+  });
+
+  it('does not auto-take if the defender can beat the attack', () => {
+    // Arrange — defender has a beating card; they get to choose.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7s', '9d'] },
+        { id: 'p1', hand: ['Js', 'Kh'] }, // J♠ beats 7♠
+      ],
+      trumpSuit: 'hearts',
+      deck: [],
+      attackerIdx: 0,
+      defenderIdx: 1,
+      phase: 'attacking',
+    });
+
+    // Act
+    const next = playAttack(s, 'p0', c('7s'));
+
+    // Assert — table still has the attack, defender hasn't auto-taken
+    expect(next.table).toHaveLength(1);
+    expect(next.phase).toBe('defending');
+  });
+
+  it('waits to auto-take when an attacker still has a pile-on card', () => {
+    // Arrange — 3 players. p2 (neighbor) holds another 7 — could pile on.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7s'] },
+        { id: 'p1', hand: ['6c'] }, // defender; can't beat 7♠
+        { id: 'p2', hand: ['7d', 'Kh'] }, // neighbor with 7 to pile on
+      ],
+      trumpSuit: 'hearts',
+      deck: [],
+      attackerIdx: 0,
+      defenderIdx: 1,
+      phase: 'attacking',
+    });
+
+    // Act — p0 attacks; p1 can't beat it but p2 still might pile on
+    const next = playAttack(s, 'p0', c('7s'));
+
+    // Assert — table still holds the attack; auto-take waits for p2 to confirm
+    expect(next.table).toHaveLength(1);
   });
 });
 

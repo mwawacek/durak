@@ -243,7 +243,14 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
         }}
         pointerEvents="box-none"
       >
-        <OvalTable cx={geometry.cx} cy={geometry.cy} rx={geometry.rx} ry={geometry.ry} />
+        <OvalTable
+          width={geometry.tableW}
+          height={geometry.tableH}
+          cx={geometry.cx}
+          cy={geometry.cy}
+          rx={geometry.rx}
+          ry={geometry.ry}
+        />
 
         {seats.map((seat) => (
           <View
