@@ -48,7 +48,6 @@ const RECONNECT_GRACE_MS = 30_000;
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(GameGateway.name);
   private readonly disconnectTimers = new Map<string, NodeJS.Timeout>();
-  private readonly socketToRooms = new Map<string, Set<string>>();
 
   @WebSocketServer()
   server!: TypedServer;
@@ -65,15 +64,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   handleConnection(client: TypedSocket): void {
     this.logger.debug(`Socket connected: ${client.id}`);
-    this.socketToRooms.set(client.id, new Set());
   }
 
   async handleDisconnect(client: TypedSocket): Promise<void> {
     const player = this.players.getBySocketId(client.id);
-    if (!player) {
-      this.socketToRooms.delete(client.id);
-      return;
-    }
+    if (!player) return;
     this.logger.debug(`Socket disconnected: ${player.name} (${player.id})`);
 
     // Mark rooms as "not connected" but keep the seat.
@@ -94,8 +89,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.disconnectTimers.delete(player.id);
     }, RECONNECT_GRACE_MS);
     this.disconnectTimers.set(player.id, timer);
-
-    this.socketToRooms.delete(client.id);
   }
 
   private finalizeDisconnect(playerId: string): void {
@@ -148,7 +141,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const myRooms = this.rooms.roomsForPlayer(id);
       for (const room of myRooms) {
         client.join(room.id);
-        this.trackSocketRoom(client.id, room.id);
         this.rooms.markConnect(id);
         if (room.status === 'in-game') {
           this.games.reconnect(room.id, id);
@@ -174,7 +166,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const player = this.requirePlayer(client);
       const room = this.rooms.create(player.id, player.name, payload.name, payload.maxPlayers);
       client.join(room.id);
-      this.trackSocketRoom(client.id, room.id);
       this.broadcastRoomList();
       return { room: this.rooms.toPublic(room) };
     });
@@ -189,7 +180,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const player = this.requirePlayer(client);
       const room = this.rooms.join(payload.roomId, player.id, player.name);
       client.join(room.id);
-      this.trackSocketRoom(client.id, room.id);
       this.server.to(room.id).emit(SOCKET_EVENTS.PLAYER_JOINED, {
         roomId: room.id,
         playerId: player.id,
@@ -210,7 +200,6 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const player = this.requirePlayer(client);
       const room = this.rooms.leave(payload.roomId, player.id);
       client.leave(payload.roomId);
-      this.untrackSocketRoom(client.id, payload.roomId);
       if (room) {
         this.server.to(room.id).emit(SOCKET_EVENTS.PLAYER_LEFT, {
           roomId: room.id,
@@ -250,6 +239,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): AckResult<void> {
     return this.trySync(() => {
       const player = this.requirePlayer(client);
+      this.requireRoomId(payload);
+      this.requireCard(payload?.card);
       this.games.attack(payload.roomId, player.id, payload.card);
       this.broadcastGameState(payload.roomId);
       this.maybeFinishGame(payload.roomId);
@@ -264,6 +255,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): AckResult<void> {
     return this.trySync(() => {
       const player = this.requirePlayer(client);
+      this.requireRoomId(payload);
+      this.requireCard(payload?.defenseCard);
+      if (typeof payload?.attackCardId !== 'string' || payload.attackCardId.length === 0) {
+        throw new GameRuleError(ERROR_CODES.INVALID_PAYLOAD, 'attackCardId required');
+      }
       this.games.defend(payload.roomId, player.id, payload.attackCardId, payload.defenseCard);
       this.broadcastGameState(payload.roomId);
       this.maybeFinishGame(payload.roomId);
@@ -278,6 +274,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): AckResult<void> {
     return this.trySync(() => {
       const player = this.requirePlayer(client);
+      this.requireRoomId(payload);
+      this.requireCard(payload?.card);
       const state = this.games.redirect(payload.roomId, player.id, payload.card);
       this.broadcastGameState(payload.roomId);
       this.emitRoundStarted(payload.roomId, state);
@@ -377,14 +375,31 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return p;
   }
 
-  private trackSocketRoom(socketId: string, roomId: string): void {
-    const rooms = this.socketToRooms.get(socketId) ?? new Set<string>();
-    rooms.add(roomId);
-    this.socketToRooms.set(socketId, rooms);
+  // ─────────────────────────────────────────────────────────────────
+  // Payload runtime guards (lightweight — keeps the engine from
+  // dereferencing nulls on a malformed client payload).
+  // ─────────────────────────────────────────────────────────────────
+  private requireRoomId(payload: unknown): asserts payload is { roomId: string } {
+    if (
+      !payload ||
+      typeof payload !== 'object' ||
+      typeof (payload as { roomId?: unknown }).roomId !== 'string' ||
+      (payload as { roomId: string }).roomId.length === 0
+    ) {
+      throw new GameRuleError(ERROR_CODES.INVALID_PAYLOAD, 'roomId required');
+    }
   }
 
-  private untrackSocketRoom(socketId: string, roomId: string): void {
-    this.socketToRooms.get(socketId)?.delete(roomId);
+  private requireCard(card: unknown): asserts card is { rank: string; suit: string; id: string } {
+    if (
+      !card ||
+      typeof card !== 'object' ||
+      typeof (card as { rank?: unknown }).rank !== 'string' ||
+      typeof (card as { suit?: unknown }).suit !== 'string' ||
+      typeof (card as { id?: unknown }).id !== 'string'
+    ) {
+      throw new GameRuleError(ERROR_CODES.INVALID_PAYLOAD, 'malformed card payload');
+    }
   }
 
   private trySync<T>(fn: () => T): AckResult<T> {

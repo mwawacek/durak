@@ -38,6 +38,20 @@ const ANGLES_BY_COUNT: Record<number, number[]> = {
   5: [-150, -120, -90, -60, -30],
 };
 
+export type SeatSizeToken = 'normal' | 'compact';
+
+/**
+ * Per-seat layout for a given opponent count. Single source of truth that
+ * couples seat box width to seat size so they can't drift apart in callers.
+ */
+export const seatLayoutFor = (
+  opponentCount: number,
+): { size: SeatSizeToken; boxWidth: number } => {
+  if (opponentCount >= 5) return { size: 'compact', boxWidth: 70 };
+  if (opponentCount === 4) return { size: 'compact', boxWidth: 84 };
+  return { size: 'normal', boxWidth: 100 };
+};
+
 interface GeometryArgs {
   /** Top safe-area inset (notch / Dynamic Island clearance). */
   topInset: number;

@@ -13,7 +13,7 @@
  *   node tools/bot.mjs --host http://192.168.1.23:3000
  */
 import { io } from '../node_modules/socket.io-client/build/esm/index.js';
-import { SOCKET_EVENTS, RANK_ORDER, beats } from '../packages/shared/dist/index.js';
+import { SOCKET_EVENTS, RANK_ORDER, beats, ranksOnTable } from '../packages/shared/dist/index.js';
 
 const args = process.argv.slice(2);
 const flagIdx = args.findIndex((a) => a.startsWith('--'));
@@ -70,11 +70,7 @@ const pickMove = (game, myId, roomId) => {
   // Bito-Bestätigung (kann sowohl Hauptangreifer als auch Nachbar sein):
   // Wenn ich noch eine günstige passende Karte habe → nachlegen, sonst bestätigen.
   if (needsMyConfirmation) {
-    const tableRanks = new Set();
-    for (const pair of game.table) {
-      tableRanks.add(pair.attack.rank);
-      if (pair.defense) tableRanks.add(pair.defense.rank);
-    }
+    const tableRanks = ranksOnTable(game.table);
     const pileable = game.you.hand.filter((c) => tableRanks.has(c.rank));
     const cheap = cheapestNonTrumpFirst(pileable, game.trumpSuit).find(
       (c) => c.suit !== game.trumpSuit,

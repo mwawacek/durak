@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/RootNavigator';
 import {
+  MAX_TABLE_PAIRS,
   SOCKET_EVENTS,
   beats,
   type Card as CardType,
@@ -13,7 +14,7 @@ import {
 import { useGameStore } from '../store/gameStore';
 import { emitAckOrToast } from '../services/socket';
 import { OvalTable } from '../components/OvalTable';
-import { PlayerSeat, type SeatSize } from '../components/PlayerSeat';
+import { PlayerSeat } from '../components/PlayerSeat';
 import { TrumpReservoir } from '../components/TrumpReservoir';
 import { BattleField } from '../components/BattleField';
 import { BrassButton } from '../components/BrassButton';
@@ -22,7 +23,7 @@ import { RingedAvatar } from '../components/RingedAvatar';
 import { Toast } from '../components/Toast';
 import { colors, fonts, presets } from '../theme/colors';
 import { useGameRules } from '../hooks/useGameRules';
-import { useOpponentSeats, useTableGeometry } from '../hooks/useTableLayout';
+import { seatLayoutFor, useOpponentSeats, useTableGeometry } from '../hooks/useTableLayout';
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Game'>;
 
@@ -124,10 +125,10 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
   );
   const seats = useOpponentSeats(opponents, game.attackerId, game.defenderId, geometry);
 
-  const seatSize: SeatSize = opponents.length >= 4 ? 'compact' : 'normal';
-  const seatBoxWidth = opponents.length >= 5 ? 70 : opponents.length >= 4 ? 84 : 100;
+  const seatLayout = seatLayoutFor(opponents.length);
 
-  const battleSize: 'sm' | 'md' = game.table.length >= 5 ? 'sm' : 'md';
+  // Battle grid shrinks card size when the table is near full so 6 pairs fit.
+  const battleSize: 'sm' | 'md' = game.table.length >= MAX_TABLE_PAIRS - 1 ? 'sm' : 'md';
 
   const playDefense = async (attackCardId: string, defenseCard: CardType) => {
     setBusy(true);
@@ -257,10 +258,10 @@ const ActiveGame: React.FC<ActiveGameProps> = ({ route, navigation, game }) => {
             key={seat.player.id}
             style={[
               styles.seatPos,
-              { left: seat.x - seatBoxWidth / 2, top: seat.y - 30, width: seatBoxWidth },
+              { left: seat.x - seatLayout.boxWidth / 2, top: seat.y - 30, width: seatLayout.boxWidth },
             ]}
           >
-            <PlayerSeat player={seat.player} role={seat.role} size={seatSize} />
+            <PlayerSeat player={seat.player} role={seat.role} size={seatLayout.size} />
           </View>
         ))}
 

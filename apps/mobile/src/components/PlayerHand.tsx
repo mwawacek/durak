@@ -70,7 +70,8 @@ export const PlayerHand: React.FC<Props> = ({
               <Card
                 card={card}
                 onPress={onSelect ? () => onSelect(card) : undefined}
-                selected={isSelected || isTrump}
+                selected={isSelected}
+                trumpHighlight={isTrump && !isSelected}
                 playable={playable}
                 disabled={!playable}
                 size="lg"

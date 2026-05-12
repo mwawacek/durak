@@ -50,11 +50,29 @@ export const TrumpReservoir: React.FC<Props> = ({
             <Card card={null} faceDown size="md" />
           </View>
         ) : null}
+        {/* Deck is gone and trump's been drawn — show a ghost medallion so the slot
+            still feels intentional and the trump suit stays visible at a glance. */}
+        {!trumpCard && deckCount === 0 && trumpSuit ? (
+          <View style={[styles.ghostMedallion, { left: stackWidth / 2 - 24, top: stackHeight / 2 - 24 }]}>
+            <Text
+              style={[
+                styles.ghostGlyph,
+                { color: trumpSuit === 'hearts' || trumpSuit === 'diamonds' ? colors.cardSuitRed : colors.goldLight },
+              ]}
+            >
+              {SUIT_GLYPH[trumpSuit]}
+            </Text>
+          </View>
+        ) : null}
       </View>
-      <View style={[presets.goldPill, styles.countBadge]}>
-        {trumpSuit ? <Text style={styles.countGlyph}>{SUIT_GLYPH[trumpSuit]}</Text> : null}
-        <Text style={styles.countNum}>{deckCount}</Text>
-      </View>
+      {/* Count badge — only show numeric count while there's still a deck;
+          when empty, the ghost medallion above already conveys "trump = X". */}
+      {deckCount > 0 ? (
+        <View style={[presets.goldPill, styles.countBadge]}>
+          {trumpSuit ? <Text style={styles.countGlyph}>{SUIT_GLYPH[trumpSuit]}</Text> : null}
+          <Text style={styles.countNum}>{deckCount}</Text>
+        </View>
+      ) : null}
     </View>
   );
 };
@@ -86,4 +104,16 @@ const styles = StyleSheet.create({
   },
   countGlyph: { fontSize: 10, color: colors.goldLight },
   countNum: { fontSize: 10, color: colors.goldLight, fontWeight: '700' },
+  ghostMedallion: {
+    position: 'absolute',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: colors.goldFaint,
+    backgroundColor: colors.bgPillSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ghostGlyph: { fontSize: 22, lineHeight: 26 },
 });

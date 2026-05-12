@@ -88,18 +88,13 @@ export const colors = {
   bgElevated: 'rgba(20,8,3,0.7)', // alias
   border: 'rgba(212,165,72,0.4)',
 
-  // Compatibility aliases (kept for any leftover callers in lobby/login)
+  // Cross-screen aliases used by Lobby / Login / Toast (kept intentionally).
   text: '#f3e7c8',
-  accent: '#d4a548',
-  accentStrong: '#f0d68f',
   textDim: 'rgba(230,196,120,0.55)',
+  accent: '#d4a548',
   danger: '#c83a36',
   success: '#5fbd83',
   warning: '#e6c478',
-  feltEdge: '#163828',
-  cardBack: '#5a1a1f',
-  cardEdge: '#d8cdb4',
-  cardBackPattern: '#d4a548',
 } as const;
 
 export const spacing = (n: number): number => n * 4;

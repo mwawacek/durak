@@ -21,7 +21,10 @@ interface Props {
   faceDown?: boolean;
   onPress?: () => void;
   disabled?: boolean;
+  /** Loud highlight — the player tapped this card. */
   selected?: boolean;
+  /** Subtle "this is a trump card" glow (less assertive than `selected`). */
+  trumpHighlight?: boolean;
   /** false = not legally playable right now (visually de-emphasized). Defaults to true. */
   playable?: boolean;
   /** Marks an attack card as already defended — green outline. */
@@ -47,6 +50,7 @@ export const Card: React.FC<Props> = ({
   onPress,
   disabled,
   selected,
+  trumpHighlight,
   playable = true,
   defended,
   rotate = 0,
@@ -62,6 +66,10 @@ export const Card: React.FC<Props> = ({
     outerBorder = { borderWidth: 1.5, borderColor: colors.goldLight };
   } else if (defended) {
     outerBorder = { borderWidth: 1.5, borderColor: colors.defendingGreen };
+  } else if (trumpHighlight) {
+    // Subtle, in-palette trump glow — distinct from `selected` so the player
+    // can tell "I picked this card" from "this card happens to be trump".
+    outerBorder = { borderWidth: 1, borderColor: colors.goldFaint };
   }
 
   const content = (
