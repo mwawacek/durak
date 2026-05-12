@@ -121,8 +121,11 @@ the round into a stuck state. Defender keeps agency in two cases:
 - After every commit (Bito or take), hands are refilled to 6 cards from the
   deck in this order: main attacker first, then clockwise, defender last
   (`refillHands`).
-- The deck's bottom card (= trump card) is the last to be drawn. After the
-  deck is empty, players who run out of cards are marked `hasFinished`.
+- The deck's bottom card (= trump card) is the last to be drawn — whoever's
+  turn it is in the refill order at that moment gets it. Once drawn, the
+  engine nulls out `state.trumpCard` (the trump-reservoir peek on the UI
+  disappears). `state.trumpSuit` stays for the rest of the game.
+- After the deck is empty, players who run out of cards are marked `hasFinished`.
 
 ## Game end
 

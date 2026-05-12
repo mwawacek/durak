@@ -459,6 +459,63 @@ describe('tryAutoTake (via playAttack)', () => {
   });
 });
 
+describe('refill clears trumpCard when the deck runs out', () => {
+  it('draws the trump card into a hand and nulls out state.trumpCard when the deck empties', () => {
+    // Arrange — 2 players, deck has exactly one card left (the trump itself).
+    // Round ends → refill should draw the trump into the attacker's hand and
+    // null out trumpCard (trumpSuit stays).
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7s', '9d', '10c', 'Qc', 'Ks'] }, // attacker, 5 cards
+        { id: 'p1', hand: ['Js', '8c', 'Ad', '6s', '3c', 'Kh'] }, // defender, 6
+      ],
+      trump: 'Jh', // hearts is trump, J♥ is the bottom card
+      trumpSuit: 'hearts',
+      deck: ['Jh'], // only the trump left
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '7s', defense: 'Jh' }],
+      phase: 'attacking',
+      passConfirmations: [0], // pre-confirmed so endTurn commits immediately
+    });
+
+    // Act
+    const next = endTurn(s, 'p0');
+
+    // Assert — round committed: deck empty, trumpCard nulled, trumpSuit intact,
+    // attacker now holds the J♥ in their hand (they refill first).
+    expect(next.deck.length).toBe(0);
+    expect(next.trumpCard).toBeNull();
+    expect(next.trumpSuit).toBe('hearts');
+    expect(next.players[0]!.hand).toEqual(expect.arrayContaining([c('Jh')]));
+  });
+
+  it('leaves trumpCard intact while the deck still has other cards', () => {
+    // Arrange — deck has trump plus another card; only 5-card hands need a top-up.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7s', '9d', '10c', 'Qc', 'Ks'] },
+        { id: 'p1', hand: ['Js', '8c', 'Ad', '6s', '3c', 'Kh'] },
+      ],
+      trump: 'Jh',
+      trumpSuit: 'hearts',
+      deck: ['As', 'Jh'], // attacker draws A♠, trump stays in deck
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '7s', defense: 'Jh' }],
+      phase: 'attacking',
+      passConfirmations: [0],
+    });
+
+    // Act
+    const next = endTurn(s, 'p0');
+
+    // Assert
+    expect(next.trumpCard).toEqual(c('Jh'));
+    expect(next.deck.length).toBe(1); // trump still down there
+  });
+});
+
 describe('takeCards', () => {
   it('moves every attack and defense card to the defender hand', () => {
     // Arrange

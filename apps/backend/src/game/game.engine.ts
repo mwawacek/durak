@@ -468,6 +468,14 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
     }
   }
 
+  // The trump card sat at the bottom of the deck and is drawn last. Once the
+  // deck is empty, the card now lives in some player's hand — null out the
+  // table reference so the trump-reservoir peek disappears. `trumpSuit` stays
+  // for the rest of the game.
+  if (s.deck.length === 0 && s.trumpCard !== null) {
+    s.trumpCard = null;
+  }
+
   for (const p of s.players) {
     if (!p.hasFinished && s.deck.length === 0 && p.hand.length === 0) {
       p.hasFinished = true;
