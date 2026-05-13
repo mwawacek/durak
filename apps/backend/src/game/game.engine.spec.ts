@@ -459,6 +459,103 @@ describe('tryAutoTake (via playAttack)', () => {
   });
 });
 
+describe('simultaneous-finish loserId tracking', () => {
+  it('names the player who finished LAST as the Durak when activePlayers reaches 0', () => {
+    // Arrange — 2 players, both ending up empty in the same step.
+    //   p0 already finished an earlier round (finishedAt = old timestamp).
+    //   p1 finishes now via the refill-cleanup pass (hand and deck both 0).
+    // The branch under test: `activePlayers.length === 0` →
+    // loserId becomes whoever's finishedAt is the most recent.
+    const s = state({
+      players: [
+        { id: 'p0', hand: [], hasFinished: true }, // pre-finished with NOW timestamp
+        { id: 'p1', hand: [] }, // about to be finished now
+      ],
+      trumpSuit: 'hearts',
+      deck: [],
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '7s', defense: 'Jh' }],
+      phase: 'attacking',
+      passConfirmations: [0], // pre-confirmed so endTurn commits the round immediately
+    });
+    // Make p0's finishedAt OLDER than what Date.now() will return below.
+    s.players[0]!.finishedAt = 1;
+
+    // Act — round commit triggers refillHands → marks p1 finished with Date.now()
+    const next = endTurn(s, 'p0');
+
+    // Assert
+    expect(next.phase).toBe('finished');
+    expect(next.loserId).toBe('p1'); // most recent finishedAt
+    expect(next.players[1]!.hasFinished).toBe(true);
+    expect((next.players[1]!.finishedAt ?? 0) > 1).toBe(true);
+  });
+});
+
+describe('auto-take after redirect', () => {
+  it('auto-takes when the new defender cannot beat anything and no neighbor can pile on', () => {
+    // Arrange — 3 players. p1 redirects 3♠ to p2 with 3♣. After redirect:
+    //   - p2 (new defender) has only diamonds (can't beat 3♠ or 3♣, hearts is trump)
+    //   - p0 and p1 (eligible attackers) have no 3 → can't pile on
+    //   → auto-take should fire.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Ad'] },
+        { id: 'p1', hand: ['3c', 'Kh'] },
+        { id: 'p2', hand: ['6d', '7d'] }, // 2 cards = enough capacity for the 2 redirected attacks
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '3s' }],
+      phase: 'defending',
+      deck: [],
+    });
+
+    // Act
+    const next = redirectAttack(s, 'p1', c('3c'));
+
+    // Assert — both attacks landed in p2's hand
+    expect(next.table).toEqual([]);
+    expect(next.players[2]!.hand).toEqual(
+      expect.arrayContaining([c('6d'), c('7d'), c('3s'), c('3c')]),
+    );
+    // Rotation past defender: p2 was defender, next attacker is p0
+    expect(next.attackerIdx).toBe(0);
+    expect(next.defenderIdx).toBe(1);
+  });
+});
+
+describe('Bito confirmation in a 2-player game', () => {
+  it('requires explicit confirmation from the lone attacker when they hold a pile-on card', () => {
+    // Arrange — 2 players. Round defended. Attacker p0 holds 7♣ which matches
+    // the table rank 7 → they could still throw it in, so auto-commit must NOT fire.
+    // The pending list should name p0 and only p0.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7c', 'Kd'] },
+        { id: 'p1', hand: ['Qh', 'Ad'] },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '7s', defense: 'Js' }],
+      phase: 'attacking',
+    });
+
+    // Act — observe pending list, then commit via Bito
+    const pendingBefore = pendingConfirmationIds(s);
+    const next = endTurn(s, 'p0');
+
+    // Assert
+    expect(pendingBefore).toEqual(['p0']);
+    expect(next.table).toEqual([]);
+    expect(next.attackerIdx).toBe(1); // defender becomes next attacker
+    expect(next.defenderIdx).toBe(0);
+  });
+});
+
 describe('refill clears trumpCard when the deck runs out', () => {
   it('draws the trump card into a hand and nulls out state.trumpCard when the deck empties', () => {
     // Arrange — 2 players, deck has exactly one card left (the trump itself).
