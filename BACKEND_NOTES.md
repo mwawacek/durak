@@ -33,3 +33,47 @@ room — full socket cycle works.
 Remaining audit findings after `npm audit fix`:
 - 2 moderate (esbuild via Vite, dev-server-only). Fix needs Vite 6 major
   upgrade — deferred.
+
+## 2026-05-15 — code-review deferred follow-ups
+
+Identified during the 2026-05-15 full-codebase review but skipped to keep
+this PR atomic. None are urgent.
+
+1. **Class-validator DTOs for socket payloads.** Every `@MessageBody()`
+   in `apps/backend/src/gateways/game.gateway.ts` is typed as a TS
+   interface (`JoinLobbyPayload`, `CreateRoomPayload`, …). The global
+   `ValidationPipe({whitelist, forbidNonWhitelisted, transform})` in
+   `main.ts` is configured but does nothing at runtime because TS
+   interfaces erase. Only the ad-hoc `requireRoomId` / `requireCard`
+   helpers (gateway:382-403) catch malformed input. Convert each payload
+   shape to a class in `apps/backend/src/gateways/dto/` with
+   class-validator decorators (`@IsString`, `@IsUUID`, `@ValidateNested`,
+   `@Type(() => CardDto)`); reference them from `@MessageBody`; delete
+   the bespoke require-helpers afterwards.
+
+2. **`commitTake` reuse in `takeCards`.** `game.engine.ts:155-164` and
+   the exported `takeCards` (`:432-450`) both push attack+defense into
+   the defender's hand, clear the table, refill, and rotate. Wrap
+   `takeCards` around `commitTake` so the two paths can't drift.
+
+3. **Extract `eligibleAttackerIndices`.** `computePendingIndices`
+   (engine:84-100) and `pileOnCapableIndices` (engine:128-141) share the
+   exact iteration: skip-confirmed, skip-finished, has-pile-on-card. Only
+   the up-front `tableFullyDefended` guard differs. Extract the common
+   loop into a private `eligibleAttackerIndices(s): Set<number>`.
+
+4. **`setConnected(state, playerId, isConnected: boolean)`.** Today
+   `markDisconnected` and `markConnected` (engine:523-535) are mirror
+   functions differing by one boolean.
+
+5. **`afterGameMutation` gateway helper.** The five gameplay handlers in
+   the gateway share the `broadcastGameState` + `emitRoundStarted` +
+   `maybeFinishGame` post-mutation flow. A single
+   `private afterGameMutation(roomId, state, { roundStarted })` helper
+   would centralise the contract.
+
+6. **Move `RECONNECT_GRACE_MS` (and `SOCKET_ACK_TIMEOUT_MS`) into
+   `@durak/shared`.** Today they live in `game.gateway.ts` and
+   `apps/web/src/services/socket.ts` / `tools/bot.mjs` respectively with
+   independent values. Moving them to shared lets engine, web, and bot
+   agree.
