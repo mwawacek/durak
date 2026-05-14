@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import type { RoomPublic } from '@durak/shared';
+import { EASE_OUT_EXPO, STAGGER_STEP } from '@/lib/motion';
 import { RoomRow } from './RoomRow';
 
 interface Props {
@@ -28,7 +29,7 @@ export const RoomList = ({ rooms, onJoin, joinPending }: Props): JSX.Element => 
           key={room.id}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.04, duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
+          transition={{ delay: i * STAGGER_STEP, duration: 0.28, ease: EASE_OUT_EXPO }}
         >
           <RoomRow room={room} onJoin={() => onJoin(room)} disabled={joinPending} />
         </motion.li>

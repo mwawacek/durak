@@ -7,6 +7,7 @@ import { BrassButton } from '@/components/BrassButton';
 import { ShareButton } from '@/components/ShareButton';
 import { SerifTitle } from '@/components/SerifTitle';
 import { cn } from '@/lib/cn';
+import { EASE_OUT_EXPO, STAGGER_STEP } from '@/lib/motion';
 import { PlayerListItem } from '@/features/lobby/PlayerListItem';
 
 interface Props {
@@ -65,7 +66,7 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
               key={p.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.05, duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
+              transition={{ delay: i * STAGGER_STEP, duration: 0.28, ease: EASE_OUT_EXPO }}
             >
               <PlayerListItem
                 player={p}
