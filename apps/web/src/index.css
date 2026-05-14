@@ -6,7 +6,7 @@
   html,
   body,
   #root {
-    height: 100%;
+    height: 100dvh;
   }
 
   html {
@@ -23,7 +23,15 @@
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
+    /* Hard scroll lock — the app is a fullscreen UI; only opted-in
+       children (lobby room list) scroll, the body itself never does.
+       Eliminates the iOS rubber-band, the URL-bar wobble, and accidental
+       page-pan when dragging cards. */
+    overflow: hidden;
     overscroll-behavior: none;
+    position: fixed;
+    inset: 0;
+    width: 100%;
 
     /* Layered backdrop: midnight base with three subtle aurora blobs that
        drift slowly. Cool — feels like a late-night card room, not a casino. */

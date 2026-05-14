@@ -35,7 +35,14 @@ export const PlayerHand = ({
   const marginH = Math.max(-Math.floor(cardW / 2) + 14, Math.min(0, idealMargin));
 
   return (
-    <div className="flex h-full w-full items-end justify-center overflow-x-auto pb-1.5 pt-6">
+    // overflow-x: auto + overflow-y: hidden — the explicit Y rule blocks the
+    // CSS spec's "if X is auto, Y becomes auto too" quirk that lets users
+    // pan the hand vertically. pt-10 keeps the selected-card lift visible
+    // even with Y-clip on.
+    <div
+      className="flex h-full w-full items-end justify-center overflow-x-auto pb-1.5 pt-10 scroll-touch"
+      style={{ overflowY: 'hidden', touchAction: 'pan-x' }}
+    >
       <div className="flex items-end">
         {hand.map((card, i) => {
           const k = total === 1 ? 0 : (i - (total - 1) / 2) / ((total - 1) / 2);
