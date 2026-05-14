@@ -1,6 +1,6 @@
 # Durak — Online Multiplayer
 
-Russian card game **Durak**, online multiplayer. NestJS backend + React Native (Expo) mobile client, sharing TypeScript contracts.
+Russian card game **Durak**, online multiplayer. NestJS backend + Vite/React mobile-first web client, sharing TypeScript contracts.
 
 ## The one rule that matters
 
@@ -11,7 +11,7 @@ Russian card game **Durak**, online multiplayer. NestJS backend + React Native (
 ```
 apps/
 ├── backend/      # NestJS 10 + Socket.IO gateway, in-memory game state
-└── mobile/       # Expo SDK 54 + React Native client
+└── web/          # Vite + React 18 + TypeScript (mobile-first) client
 packages/
 └── shared/       # Card, GameState, SocketEvents — typed contracts
 tools/
@@ -30,10 +30,10 @@ npm run build:shared      # MUST run before backend/mobile typecheck
 
 # Development (separate terminals)
 npm run dev:backend       # NestJS on :3000
-npm run dev:mobile        # Expo Metro bundler
+npm run dev:web           # Vite dev server on :5173
 
 # Solo testing — bot opponent (Durak needs ≥ 2 players)
-npm run bot -- TestBot --host-room   # Bot hosts; you join from the app
+npm run bot -- TestBot --host-room   # Bot hosts; you join from the browser
 npm run bot -- TestBot               # Bot joins your existing room
 
 # Full stack incl. Postgres (optional — game state is in-memory anyway)
@@ -45,19 +45,21 @@ npm run docker:down
 npm run typecheck         # All workspaces
 ```
 
-## Key gotcha: shared must be built first
+## Key gotcha: shared has two consumers
 
-`@durak/shared` is consumed as a workspace dep with a real `dist/` build (not just TS source). After editing `packages/shared/`:
+`@durak/shared` is consumed two ways:
 
-```bash
-npm run build:shared       # Or: npm run dev:shared (watch mode)
-```
+1. **Backend + bot** → import from the compiled `dist/` (CommonJS). After editing `packages/shared/`:
+   ```bash
+   npm run build:shared       # Or: npm run dev:shared (watch mode)
+   ```
+2. **Web client** → Vite aliases `@durak/shared` directly to the TS source (`packages/shared/src/index.ts`). Tree-shaking + named imports work natively without a build step. Typecheck still resolves via the package's `types` field so contracts stay strict.
 
-Otherwise `npm run typecheck` may pass while runtime fails on missing `dist/`.
+Both consumers see the same source of truth; only the build pipeline differs.
 
 ## Architecture in one paragraph
 
-Mobile establishes a Socket.IO connection to the backend on app start (LobbyScreen → `services/socket.ts`). All gameplay flows through ack-based events defined in `packages/shared/src/events.ts`. The backend `GameGateway` (`apps/backend/src/gateways/game.gateway.ts`) validates payloads, calls `GameEngine` pure functions, and broadcasts `GAME_STATE_UPDATE` to room members. Game state is in-memory per `RoomService`. Postgres (TypeORM) only persists player profiles — never game state.
+The web client establishes a Socket.IO connection to the backend on app start (`App.tsx` → `services/socket.ts`). All gameplay flows through ack-based events defined in `packages/shared/src/events.ts`. The backend `GameGateway` (`apps/backend/src/gateways/game.gateway.ts`) validates payloads, calls `GameEngine` pure functions, and broadcasts `GAME_STATE_UPDATE` to room members. Game state is in-memory per `RoomService`. Postgres (TypeORM) only persists player profiles — never game state.
 
 ## Testing approach
 
@@ -85,13 +87,13 @@ When adding socket events: change `packages/shared/src/events.ts` first, then bo
 |---|---|
 | Add or change a socket event | `packages/shared/src/events.ts` |
 | Change a game rule | `apps/backend/src/game/game.engine.ts` |
-| Change UI / theme | `apps/mobile/src/theme/colors.ts` and `src/components/` |
+| Change UI / theme tokens | `apps/web/tailwind.config.ts` (Tailwind tokens) and `apps/web/src/theme/tokens.ts` (mirrors for inline SVG) |
 | Debug why a move was rejected | `apps/backend/src/game/game.engine.ts` (throws `GameRuleError` with `ErrorCode`) |
-| Understand current visual design | `docs/superpowers/specs/2026-05-06-durak-mobile-redesign-design.md` |
+| Understand current visual design | `docs/superpowers/specs/2026-05-06-durak-mobile-redesign-design.md` (originated for mobile; design language carried over to the web client) |
 
 ## Conventions
 
 - TypeScript strict mode everywhere. No `any` without a comment explaining why.
-- German user-facing strings in mobile (`"Du verteidigst"`, `"Bito"`). Code/comments in English.
-- Commit style: `feat(scope): …`, `fix(scope): …`, `docs(scope): …`. Scope = `backend`, `mobile`, `shared`, or `repo`.
-- The repo is a monorepo by design (see this discussion in conversation history). Do **not** propose splitting into separate repos or migrating to Nx without an explicit reason that 3 packages can't solve.
+- German user-facing strings (`"Du verteidigst"`, `"Bito"`). Code/comments in English.
+- Commit style: `feat(scope): …`, `fix(scope): …`, `docs(scope): …`. Scope = `backend`, `web`, `shared`, or `repo`.
+- The repo is a monorepo by design. Do **not** propose splitting into separate repos or migrating to Nx without an explicit reason that 3 packages can't solve.

@@ -2,7 +2,7 @@
   "name": "durak",
   "version": "0.1.0",
   "private": true,
-  "description": "Online-Multiplayer Durak card game — NestJS backend + React Native (Expo) mobile app",
+  "description": "Online-Multiplayer Durak card game — NestJS backend + Vite/React mobile-first web client",
   "workspaces": [
     "apps/*",
     "packages/*"

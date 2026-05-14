@@ -6,12 +6,14 @@ Production-grade online multiplayer implementation of the Russian card game **Du
 
 | Layer        | Technology                                                     |
 | ------------ | -------------------------------------------------------------- |
-| Mobile       | React Native + Expo, Zustand, Socket.IO client                 |
+| Web client   | Vite + React 18 + TypeScript, Zustand, TailwindCSS, Framer Motion, Socket.IO client |
 | Backend      | NestJS 10, Socket.IO Gateway, REST (health/auth)               |
 | Persistence  | PostgreSQL 16 (TypeORM), optional — game state is in-memory    |
 | Shared Types | `@durak/shared` — Card, GameState, Socket event contracts      |
 
 **All game logic lives in the backend** (anti-cheat). The client only renders state and forwards user intents. Game state is authoritative in-memory on the server; Postgres stores player profiles and stats only.
+
+The client is **mobile-first** — primary target is iPhone Safari (iPhone 12 and newer). Desktop / tablet work; portrait is the design canvas.
 
 ## Monorepo layout
 
@@ -19,7 +21,7 @@ Production-grade online multiplayer implementation of the Russian card game **Du
 durak/
 ├── apps/
 │   ├── backend/      # NestJS server + Socket.IO gateway
-│   └── mobile/       # Expo React Native app
+│   └── web/          # Vite + React mobile-first web client
 └── packages/
     └── shared/       # Typed contracts (Card, GameState, SocketEvents)
 ```
@@ -31,7 +33,7 @@ Managed via **npm workspaces**.
 ### Prerequisites
 - Node.js 20.11+ and npm 10.2+
 - (optional) Docker + Docker Compose for the full stack including Postgres
-- Expo Go app on your phone, or iOS Simulator / Android Emulator
+- A modern browser (Chrome / Safari / Firefox)
 
 ### Install
 ```bash
@@ -49,19 +51,21 @@ npm run dev:backend
 ```bash
 npm run docker:up           # starts postgres + backend
 npm run docker:logs         # tails backend logs
-# tear down with: npm run docker:down
+npm run docker:down         # tears it down
 ```
 
-### Run the mobile app
+### Run the web client
 ```bash
-npm run dev:mobile
-# Press `i` for iOS sim, `a` for Android, or scan the QR with Expo Go.
+npm run dev:web
+# → Vite dev server on http://localhost:5173
 ```
 
-When running on a **physical device**, the app auto-detects the Metro host IP and uses the same machine for the backend (port 3000). To override:
+Vite binds to `0.0.0.0`, so you can also open it from your phone over LAN at `http://<your-laptop-ip>:5173`. The web client auto-resolves the backend URL to the same host on port 3000.
+
+To override the backend URL, set `VITE_API_URL` in `apps/web/.env.local`:
 
 ```bash
-EXPO_PUBLIC_API_URL=http://192.168.1.23:3000 npm run dev:mobile
+echo "VITE_API_URL=http://192.168.1.23:3000" > apps/web/.env.local
 ```
 
 ### Testing alone — the Bot
@@ -75,13 +79,14 @@ npm run dev:backend
 # Terminal 2 — bot that hosts a room and waits for you to join:
 npm run bot -- MyBot --host-room
 
-# Terminal 3 — mobile app:
-npm run dev:mobile
-# → open the app, log in as yourself, you'll see "MyBot's Bot-Tisch" in the lobby,
-#   tap to join, the bot auto-starts the game as soon as you're in.
+# Terminal 3 — web client:
+npm run dev:web
+# → open http://localhost:5173 in a browser tab, enter a name, you'll see
+#   "MyBot's Bot-Tisch" in the lobby. Tap to join — the bot auto-starts the
+#   game as soon as you're in.
 ```
 
-Alternative modes:
+Alternative bot modes:
 
 ```bash
 # Bot auto-joins the first open lobby room (you host, bot joins):
@@ -95,6 +100,10 @@ npm run bot -- MyBot --host http://192.168.1.23:3000 --host-room
 ```
 
 The bot uses a simple heuristic (lowest non-trump for attacks, cheapest legal defense, take-cards if no defense). Enough to exercise all engine paths and play through entire games.
+
+## Shareable room URLs
+
+Each room has a permalink: `/r/<roomId>`. Send it via WhatsApp / iMessage and the recipient lands in the join flow directly — no login. If they have never played, the app asks for a display name (persisted in LocalStorage) before joining.
 
 ## Socket protocol
 
@@ -114,14 +123,14 @@ All events and payload types live in `packages/shared/src/events.ts` and are imp
 | `takeCards`    | `{ roomId }`                                            |
 
 **Server → Client**:
-| Event              | Payload                     |
-| ------------------ | --------------------------- |
-| `gameStateUpdate`  | `GameStatePrivate` (you-view) |
-| `roomListUpdate`   | `RoomPublic[]`              |
-| `playerJoined`     | `{ roomId, playerId, playerName }` |
-| `playerLeft`       | `{ roomId, playerId }`      |
+| Event              | Payload                              |
+| ------------------ | ------------------------------------ |
+| `gameStateUpdate`  | `GameStatePrivate` (you-view)         |
+| `roomListUpdate`   | `RoomPublic[]`                       |
+| `playerJoined`     | `{ roomId, playerId, playerName }`   |
+| `playerLeft`       | `{ roomId, playerId }`               |
 | `roundStarted`     | `{ roomId, attackerId, defenderId }` |
-| `errorMessage`     | `{ code, message }`         |
+| `errorMessage`     | `{ code, message }`                  |
 
 ## Game rules implemented
 
@@ -150,24 +159,27 @@ All events and payload types live in `packages/shared/src/events.ts` and are imp
 | `npm run build:shared`   | Compile `@durak/shared` once                     |
 | `npm run dev:shared`     | Watch-build `@durak/shared`                      |
 | `npm run dev:backend`    | NestJS in watch mode                             |
-| `npm run dev:mobile`     | Expo dev server                                  |
+| `npm run dev:web`        | Vite dev server                                  |
+| `npm run build:web`      | Production build of the web client               |
 | `npm run typecheck`      | TypeScript check across all workspaces           |
+| `npm run lint`           | ESLint across all workspaces                     |
 | `npm run docker:up`      | Build + start backend + postgres                 |
 
 ## Roadmap
 
 1. ✅ Monorepo setup
 2. ✅ NestJS backend
-3. ✅ Expo mobile app
+3. ✅ Web client (Vite + React, mobile-first)
 4. ✅ Socket connection (typed)
 5. ✅ Lobby & Room system
-6. ✅ Card model + game state
-7. ✅ Deck shuffle + deal
-8. ✅ Trump logic
-9. ✅ Attack logic
-10. ✅ Defense logic
-11. ✅ Round resolution (bito / take)
-12. ✅ Game sync (per-player projections)
-13. ✅ Reconnect handling (30s grace)
-14. ✅ PostgreSQL integration (optional, profile stats)
-15. ✅ Deployment (Dockerfile + compose)
+6. ✅ Shareable room URLs (`/r/:roomId`)
+7. ✅ Card model + game state
+8. ✅ Deck shuffle + deal
+9. ✅ Trump logic
+10. ✅ Attack logic
+11. ✅ Defense logic
+12. ✅ Round resolution (bito / take)
+13. ✅ Game sync (per-player projections)
+14. ✅ Reconnect handling (30s grace)
+15. ✅ PostgreSQL integration (optional, profile stats)
+16. ✅ Deployment (Dockerfile + compose)
