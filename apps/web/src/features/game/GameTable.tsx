@@ -186,9 +186,8 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' });
   };
 
-  // Tap on the play area with a selected card → if I'm the defender and the
-  // card has exactly one undefended target, commit the defense. Pure-attacker
-  // path is already handled by tapping the hand card directly.
+  // The attacker plays via the hand directly; this handler exists only so a
+  // defender with a single legal target can commit by tapping the panel.
   const handlePlayAreaTap = async () => {
     if (!isDefender || !selectedCard) return;
     if (candidateAttackIds.size !== 1) return;
@@ -306,13 +305,14 @@ const buildHeadline = (a: HeadlineArgs): { line: string; sub: string } => {
       ? { line: 'Du bist am Zug', sub: 'Wähle eine Karte aus der Hand.' }
       : { line: 'Dein Zug', sub: 'Lege nach oder warte ab.' };
   }
+  if (a.isDefender && a.redirectMode) {
+    return { line: 'Karte zum Weiterschieben', sub: 'Nur gleicher Wert wie oben.' };
+  }
+  if (a.isDefender && a.canRedirect) {
+    return { line: 'Schlagen oder schieben', sub: 'Karte zum Schlagen wählen.' };
+  }
   if (a.isDefender) {
-    if (a.redirectMode) {
-      return { line: 'Karte zum Weiterschieben', sub: 'Nur gleicher Wert wie oben.' };
-    }
-    return a.canRedirect
-      ? { line: 'Schlagen oder schieben', sub: 'Karte zum Schlagen wählen.' }
-      : { line: 'Karte zum Schlagen wählen', sub: 'Höher in der Farbe — oder Trumpf.' };
+    return { line: 'Karte zum Schlagen wählen', sub: 'Höher in der Farbe — oder Trumpf.' };
   }
   return {
     line: `${a.defenderName ?? 'Gegner'} verteidigt`,

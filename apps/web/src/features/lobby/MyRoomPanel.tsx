@@ -4,7 +4,7 @@ import { SOCKET_EVENTS, type RoomPublic, MIN_PLAYERS } from '@durak/shared';
 import { useGameStore } from '@/store/gameStore';
 import { emitAckOrToast } from '@/services/socket';
 import { BrassButton } from '@/components/BrassButton';
-import { cn } from '@/lib/cn';
+import { PlayerListItem } from './PlayerListItem';
 
 interface Props {
   room: RoomPublic;
@@ -44,17 +44,13 @@ export const MyRoomPanel = ({ room }: Props): JSX.Element => {
 
       <ul className="mt-4 flex flex-col gap-2">
         {room.players.map((p) => (
-          <li key={p.id} className="flex items-center gap-2.5">
-            <span
-              className={cn(
-                'h-1.5 w-1.5 rounded-full',
-                p.isConnected ? 'bg-accent' : 'bg-text-tertiary',
-              )}
+          <li key={p.id}>
+            <PlayerListItem
+              player={p}
+              isOwner={p.id === room.ownerId}
+              isMe={p.id === playerId}
+              variant="compact"
             />
-            <span className="flex-1 truncate font-sans text-[15px] text-text-primary">
-              {p.name}
-            </span>
-            {p.id === room.ownerId ? <span className="label-eyebrow">Host</span> : null}
           </li>
         ))}
       </ul>

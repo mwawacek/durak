@@ -2,6 +2,7 @@ import { useId, useState, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { MIN_PLAYERS, MAX_PLAYERS } from '@durak/shared';
 import { BrassButton } from '@/components/BrassButton';
+import { SerifTitle } from '@/components/SerifTitle';
 import { cn } from '@/lib/cn';
 
 interface Props {
@@ -42,12 +43,9 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line-mid sm:hidden" />
 
         <span className="label-eyebrow">Neuer Tisch</span>
-        <h2
-          className="mt-1 font-serif text-2xl text-text-primary"
-          style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
-        >
+        <SerifTitle size="md" className="mt-1">
           Wie soll er heißen?
-        </h2>
+        </SerifTitle>
 
         <label htmlFor={inputId} className="label-eyebrow mt-6 block">
           Name

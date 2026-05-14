@@ -1,9 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useParams } from 'react-router-dom';
 import { useGameStore } from '@/store/gameStore';
 import { useRoomMembership } from '@/hooks/useRoomMembership';
 import { NameEntryModal } from '@/components/NameEntryModal';
-import { BrassButton } from '@/components/BrassButton';
+import { StatusScreen } from '@/components/StatusScreen';
 import { WaitingRoom } from '@/features/waiting/WaitingRoom';
 
 const GameTable = lazy(() =>
@@ -22,23 +22,26 @@ export const RoomRoute = (): JSX.Element => {
   useRoomMembership(roomId);
 
   if (!playerName) return <NameEntryModal reason="invite" />;
-  if (!roomId) return <ErrorScreen title="Kein Raum angegeben" />;
+  if (!roomId) {
+    return <StatusScreen title="Kein Raum angegeben" showLobbyLink />;
+  }
 
   if (!connected) {
-    return <PlaceholderScreen title="Verbinde…" sub="Server wird kontaktiert" />;
+    return <StatusScreen title="Verbinde…" sub="Server wird kontaktiert" />;
   }
 
   if (!lobbyJoined) {
-    return <PlaceholderScreen title="Lade Lobby…" sub="Räume werden synchronisiert" />;
+    return <StatusScreen title="Lade Lobby…" sub="Räume werden synchronisiert" />;
   }
 
   const room = rooms.find((r) => r.id === roomId);
 
   if (!room) {
     return (
-      <PlaceholderScreen
+      <StatusScreen
         title="Raum nicht gefunden"
         sub="Vielleicht ist er schon zu Ende — versuche es in der Lobby."
+        showLobbyLink
       />
     );
   }
@@ -47,15 +50,16 @@ export const RoomRoute = (): JSX.Element => {
 
   if (!iAmInRoom && room.status !== 'lobby') {
     return (
-      <ErrorScreen
+      <StatusScreen
         title="Spiel läuft bereits"
         body="Du kannst nicht in eine laufende Partie einsteigen."
+        showLobbyLink
       />
     );
   }
 
   if (!iAmInRoom) {
-    return <PlaceholderScreen title="Trete dem Tisch bei…" sub={room.name} />;
+    return <StatusScreen title="Trete dem Tisch bei…" sub={room.name} />;
   }
 
   if (room.status === 'lobby') {
@@ -63,45 +67,12 @@ export const RoomRoute = (): JSX.Element => {
   }
 
   if (!game || game.roomId !== roomId) {
-    return <PlaceholderScreen title="Warte auf Spielstart…" sub={room.name} />;
+    return <StatusScreen title="Warte auf Spielstart…" sub={room.name} />;
   }
 
   return (
-    <Suspense fallback={<PlaceholderScreen title="Lade Spiel…" sub={room.name} />}>
+    <Suspense fallback={<StatusScreen title="Lade Spiel…" sub={room.name} />}>
       <GameTable game={game} roomId={roomId} />
     </Suspense>
   );
 };
-
-interface ScreenProps {
-  title: string;
-  sub?: string;
-  body?: string;
-}
-
-const PlaceholderScreen = ({ title, sub }: ScreenProps): JSX.Element => (
-  <main className="flex h-dvh flex-col items-center justify-center gap-2 px-6 text-center text-text-primary safe-pt safe-pb">
-    <h1
-      className="font-serif text-2xl text-text-primary"
-      style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
-    >
-      {title}
-    </h1>
-    {sub ? <p className="font-sans text-sm text-text-secondary">{sub}</p> : null}
-  </main>
-);
-
-const ErrorScreen = ({ title, body }: ScreenProps): JSX.Element => (
-  <main className="flex h-dvh flex-col items-center justify-center gap-4 px-6 text-center text-text-primary safe-pt safe-pb">
-    <h1
-      className="font-serif text-2xl text-text-primary"
-      style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
-    >
-      {title}
-    </h1>
-    {body ? <p className="font-sans text-sm text-text-secondary">{body}</p> : null}
-    <Link to="/">
-      <BrassButton variant="primary" label="Zur Lobby" />
-    </Link>
-  </main>
-);

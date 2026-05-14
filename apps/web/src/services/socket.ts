@@ -1,5 +1,5 @@
 import { io, type Socket } from 'socket.io-client';
-import { type AckResult, ERROR_CODES } from '@durak/shared';
+import { type AckResult, ERROR_CODES, type SocketEventName } from '@durak/shared';
 import { useGameStore } from '@/store/gameStore';
 
 /**
@@ -47,16 +47,21 @@ export const getSocket = (): Socket => {
 
 /**
  * Emit a socket event with an ack and a 10 s timeout. The server returns
- * `AckResult<T>`. Payload is unknown — callers cast the data they get back
- * per event (the contract lives in @durak/shared).
+ * `AckResult<T>`. Restricting `event` to the SOCKET_EVENTS value union
+ * gives us compile-time coverage on typos at call sites; the payload
+ * stays `unknown` because each event has a different shape (the contract
+ * lives in @durak/shared).
  */
 export const emitAck = async (
-  event: string,
+  event: SocketEventName,
   payload?: unknown,
 ): Promise<AckResult<unknown>> => {
   const s = getSocket();
   try {
     const args = payload === undefined ? [] : [payload];
+    // `emitWithAck` is typed as `Promise<unknown>`. The runtime always
+    // returns `AckResult<unknown>` because every backend handler wraps its
+    // response — this cast is the documented contract boundary.
     return (await s.timeout(10_000).emitWithAck(event, ...args)) as AckResult<unknown>;
   } catch {
     const message = s.connected ? 'Server hat nicht geantwortet' : 'Verbindung getrennt';
@@ -70,10 +75,10 @@ export const emitAck = async (
 /**
  * Like emitAck, but on failure routes the error message into the global Toast
  * (via useGameStore.setError) and resolves with null. On success returns
- * ack.data cast to T.
+ * ack.data narrowed to T (caller-asserted, per the same contract as emitAck).
  */
 export const emitAckOrToast = async <T = unknown>(
-  event: string,
+  event: SocketEventName,
   payload?: unknown,
 ): Promise<T | null> => {
   const ack = (await emitAck(event, payload)) as AckResult<T>;

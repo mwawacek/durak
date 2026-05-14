@@ -71,7 +71,6 @@ export const PlayerHand = ({
               card={card}
               width={cardW}
               onClick={onSelect ? () => onSelect(card) : undefined}
-              disabled={!playable && !onSelect ? true : false}
               selected={isSelected}
               isTrump={isTrump}
               playable={playable}

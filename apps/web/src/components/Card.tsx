@@ -105,7 +105,7 @@ const CardImpl = ({
       onClick={onClick}
       disabled={disabled}
       className="block bg-transparent p-0 active:scale-[0.97]"
-      aria-label={card ? `${card.rank} ${card.suit}` : faceDown ? 'verdeckte Karte' : ''}
+      aria-label={card ? `${card.rank} ${card.suit}` : faceDown ? 'verdeckte Karte' : undefined}
     >
       {cardBox}
     </button>

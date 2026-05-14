@@ -22,7 +22,10 @@ export const RoomRow = ({ room, onJoin, disabled }: Props): JSX.Element => {
       )}
     >
       <div className="min-w-0 flex-1">
-        <p className="truncate font-serif text-lg text-text-primary" style={{ fontWeight: 500, letterSpacing: '-0.01em' }}>
+        <p
+          className="truncate font-serif text-lg text-text-primary"
+          style={{ fontWeight: 500, letterSpacing: '-0.01em' }}
+        >
           {room.name}
         </p>
         <div className="mt-1 flex items-center gap-1.5">

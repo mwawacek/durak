@@ -4,6 +4,12 @@ import type { AttackPair } from '@durak/shared';
 import { Card } from '@/components/Card';
 import { PLAY_CARD_W, cardDims } from '@/components/cardSizes';
 
+// Constant per-render, hoisted out of the BattlePair body.
+const PLAY_DIMS = cardDims(PLAY_CARD_W);
+const PAIR_OFFSET = PLAY_CARD_W * 0.22;
+const CELL_W = PLAY_DIMS.w + PAIR_OFFSET;
+const CELL_H = PLAY_DIMS.h + PAIR_OFFSET;
+
 interface Props {
   pairs: AttackPair[];
   onAttackPress?: (attackCardId: string) => void;
@@ -49,11 +55,8 @@ interface PairProps {
 }
 
 const BattlePair = ({ pair, highlighted, onClick }: PairProps): JSX.Element => {
-  const { w, h } = cardDims(PLAY_CARD_W);
-  const cellW = w + w * 0.22;
-  const cellH = h + w * 0.22;
   return (
-    <div className="relative" style={{ width: cellW, height: cellH }}>
+    <div className="relative" style={{ width: CELL_W, height: CELL_H }}>
       <Card
         card={pair.attack}
         width={PLAY_CARD_W}
@@ -66,7 +69,7 @@ const BattlePair = ({ pair, highlighted, onClick }: PairProps): JSX.Element => {
           initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
           animate={{ opacity: 1, scale: 1, rotate: 14 }}
           transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
-          style={{ position: 'absolute', top: 18, left: 14 }}
+          style={{ position: 'absolute', top: PAIR_OFFSET, left: PAIR_OFFSET * 0.75 }}
         >
           <Card card={pair.defense} width={PLAY_CARD_W} defended />
         </motion.div>

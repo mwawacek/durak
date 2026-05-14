@@ -5,7 +5,9 @@ import { useGameStore } from '@/store/gameStore';
 import { emitAckOrToast } from '@/services/socket';
 import { BrassButton } from '@/components/BrassButton';
 import { ShareButton } from '@/components/ShareButton';
+import { SerifTitle } from '@/components/SerifTitle';
 import { cn } from '@/lib/cn';
+import { PlayerListItem } from '@/features/lobby/PlayerListItem';
 
 interface Props {
   room: RoomPublic;
@@ -39,12 +41,9 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
     <main className="flex h-dvh flex-col text-text-primary safe-pt safe-pb">
       <header className="px-5 pt-10">
         <span className="label-eyebrow">Wartebereich</span>
-        <h1
-          className="mt-2 truncate font-serif text-3xl leading-tight text-text-primary"
-          style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
-        >
+        <SerifTitle size="lg" className="mt-2 truncate leading-tight">
           {room.name}
-        </h1>
+        </SerifTitle>
         <div className="mt-3 inline-flex items-center gap-2 rounded-pill border border-line-subtle bg-white/[0.03] px-3 py-1.5">
           <span
             className={cn(
@@ -64,22 +63,16 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
           {room.players.map((p, i) => (
             <motion.li
               key={p.id}
-              className="flex items-center gap-3 rounded-panel border border-line-subtle bg-bg-card/60 px-4 py-3.5"
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.05, duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
             >
-              <span
-                className={cn(
-                  'h-2 w-2 rounded-full',
-                  p.isConnected ? 'bg-accent' : 'bg-text-tertiary',
-                )}
+              <PlayerListItem
+                player={p}
+                isOwner={p.id === room.ownerId}
+                isMe={p.id === playerId}
+                variant="panel"
               />
-              <span className="flex-1 truncate font-sans text-[15px] text-text-primary">
-                {p.name}
-              </span>
-              {p.id === room.ownerId ? <span className="label-eyebrow">Host</span> : null}
-              {p.id === playerId ? <span className="label-eyebrow">Du</span> : null}
             </motion.li>
           ))}
         </ul>

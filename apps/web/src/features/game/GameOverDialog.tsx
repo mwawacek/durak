@@ -2,6 +2,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/store/gameStore';
 import { BrassButton } from '@/components/BrassButton';
+import { SerifTitle } from '@/components/SerifTitle';
 
 interface Props {
   iAmLoser: boolean;
@@ -27,12 +28,9 @@ export const GameOverDialog = ({ iAmLoser, loserName }: Props): JSX.Element => {
         transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
       >
         <span className="label-eyebrow">Spielende</span>
-        <h2
-          className="mt-3 font-serif text-3xl leading-tight text-text-primary"
-          style={{ letterSpacing: '-0.015em', fontWeight: 500 }}
-        >
+        <SerifTitle size="lg" className="mt-3 leading-tight">
           {iAmLoser ? 'Du bist Durak' : loserName ? `${loserName} ist Durak` : 'Unentschieden'}
-        </h2>
+        </SerifTitle>
         <p className="mt-2 font-sans text-sm text-text-secondary">
           {iAmLoser ? 'Beim nächsten Mal die anderen.' : 'Gut gespielt.'}
         </p>

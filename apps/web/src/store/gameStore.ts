@@ -28,6 +28,7 @@ const roomsEqual = (a: RoomPublic[], b: RoomPublic[]): boolean => {
     const x = a[i]!;
     const y = b[i]!;
     if (x.id !== y.id) return false;
+    if (x.name !== y.name) return false;
     if (x.status !== y.status) return false;
     if (x.ownerId !== y.ownerId) return false;
     if (x.maxPlayers !== y.maxPlayers) return false;

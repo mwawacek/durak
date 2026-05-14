@@ -23,13 +23,11 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'
  */
 const VARIANT_STYLES: Record<BrassVariant, string> = {
   primary:
-    'text-white border-accent-light/40 shadow-cta bg-[linear-gradient(180deg,#ff8a7a_0%,#ff6f5e_50%,#ff5a48_100%)]',
+    'text-white border-accent-light/40 shadow-cta bg-gradient-to-b from-accent-light via-accent to-accent-deep',
   danger:
-    'text-white border-accent-light/40 shadow-cta bg-[linear-gradient(180deg,#ff8a7a_0%,#ff6f5e_50%,#ff5a48_100%)]',
-  secondary:
-    'text-text-primary border-line-mid bg-white/[0.04] hover:bg-white/[0.06]',
-  'secondary-active':
-    'text-text-primary border-accent-ring bg-accent-soft',
+    'text-white border-accent-light/40 shadow-cta bg-gradient-to-b from-accent-light via-accent to-accent-deep',
+  secondary: 'text-text-primary border-line-mid bg-white/[0.04] hover:bg-white/[0.06]',
+  'secondary-active': 'text-text-primary border-accent-ring bg-accent-soft',
 };
 
 export const BrassButton = forwardRef<HTMLButtonElement, Props>(function BrassButton(
