@@ -63,27 +63,36 @@ export const LobbyPage = (): JSX.Element => {
   };
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-bg text-cream safe-pt safe-pb">
-      <header className="flex items-center justify-between gap-3 px-5 pt-6">
+    <div className="relative flex min-h-dvh flex-col text-cream safe-pt safe-pb">
+      <header className="flex items-end justify-between gap-3 px-5 pt-8">
         <div>
-          <p className="font-serif text-[10px] font-bold uppercase tracking-[0.3em] text-gold-light">
+          <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-gold-light">
             Lobby
           </p>
-          <h1 className="mt-1 font-serif text-2xl italic text-cream">{playerName ?? '…'}</h1>
+          <h1 className="mt-1 font-serif text-3xl italic leading-tight text-cream">
+            {playerName ?? '…'}
+          </h1>
+          <p className="mt-0.5 text-[11px] uppercase tracking-[0.25em] text-cream-dim">
+            Wähle einen Tisch.
+          </p>
         </div>
-        <BrassButton
-          variant="primary"
-          label="Neuer Tisch"
-          onClick={() => setCreating(true)}
-          disabled={!connected}
-        />
+        <div className="pb-1">
+          <BrassButton
+            variant="primary"
+            label="Neuer Tisch"
+            onClick={() => setCreating(true)}
+            disabled={!connected}
+          />
+        </div>
       </header>
 
-      <main className="scroll-touch flex flex-1 flex-col gap-5 overflow-y-auto px-5 pb-6 pt-4">
+      <div className="mx-5 mt-5 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
+
+      <main className="scroll-touch flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-8 pt-5">
         {myRoom ? <MyRoomPanel room={myRoom} /> : null}
 
-        <section className="flex flex-col gap-2">
-          <h2 className="font-serif text-[11px] font-bold uppercase tracking-[0.3em] text-gold-light">
+        <section className="flex flex-col gap-3">
+          <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-gold-light">
             Offene Tische
           </h2>
           <RoomList

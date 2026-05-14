@@ -19,11 +19,37 @@
     background-color: theme('colors.bg');
     color: theme('colors.cream.DEFAULT');
     font-family: theme('fontFamily.serif');
+    font-feature-settings: 'lnum' 1, 'kern' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     overscroll-behavior: none;
+    background-image:
+      radial-gradient(70% 50% at 50% 0%, rgba(106, 58, 34, 0.22) 0%, transparent 80%),
+      radial-gradient(60% 60% at 100% 100%, rgba(15, 35, 23, 0.18) 0%, transparent 80%),
+      repeating-linear-gradient(91deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 9px);
+    background-attachment: fixed;
+  }
+
+  /* Grainy noise overlay applied at the app shell level. Keeps the dark
+     mahogany backdrop from looking like a flat colour fill. SVG fragment
+     embedded as a data URI so it ships in the bundle (≈ 1 KB). */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.35;
+    mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.86 0 0 0 0 0.62 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+    min-height: 100%;
   }
 
   /* Cards, seats, and UI chrome should not be selectable — long-press on iOS

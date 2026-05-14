@@ -67,7 +67,15 @@ const config: Config = {
         },
       },
       fontFamily: {
-        serif: ['Georgia', 'Cambria', '"Times New Roman"', 'Times', 'serif'],
+        display: ['Cinzel', 'Georgia', 'serif'],
+        serif: [
+          '"Cormorant Garamond"',
+          'Georgia',
+          'Cambria',
+          '"Times New Roman"',
+          'Times',
+          'serif',
+        ],
         sans: [
           'system-ui',
           '-apple-system',
@@ -92,9 +100,30 @@ const config: Config = {
           '0%, 100%': { opacity: '0.5' },
           '50%': { opacity: '1' },
         },
+        'fade-up': {
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'gold-shimmer': {
+          '0%': { backgroundPosition: '0% 50%' },
+          '100%': { backgroundPosition: '200% 50%' },
+        },
       },
       animation: {
         'pulse-outline': 'pulse-outline 1.4s ease-in-out infinite',
+        'fade-up': 'fade-up 280ms cubic-bezier(0.2, 0.7, 0.2, 1) both',
+        'gold-shimmer': 'gold-shimmer 6s linear infinite',
+      },
+      backgroundImage: {
+        // Subtle felt texture — diagonal weave overlaid on the base felt colour.
+        'felt-weave':
+          'repeating-linear-gradient(135deg, rgba(255,255,255,0.018) 0 2px, transparent 2px 4px), repeating-linear-gradient(45deg, rgba(0,0,0,0.06) 0 2px, transparent 2px 5px)',
+        // Wood-grain stripes for the body background.
+        'wood-grain':
+          'repeating-linear-gradient(90deg, rgba(255,255,255,0.012) 0 1px, transparent 1px 7px), radial-gradient(120% 90% at 50% 0%, #2a1108 0%, #160803 60%, #0d0502 100%)',
+        // Engraved gold-foil text gradient (paired with bg-clip-text).
+        'gold-foil':
+          'linear-gradient(180deg, #fbe69c 0%, #d4a548 45%, #8a5a1f 100%)',
       },
     },
   },

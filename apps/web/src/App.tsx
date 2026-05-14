@@ -34,3 +34,27 @@ export const App = (): JSX.Element => {
     </BrowserRouter>
   );
 };
+
+/**
+ * Distinctive engraved-foil wordmark for routes that need to remind the
+ * player which app they're in (lobby header, login modal, game-over).
+ */
+export const WordMark = ({
+  size = 'lg',
+}: {
+  size?: 'sm' | 'md' | 'lg';
+}): JSX.Element => {
+  const sizes = {
+    sm: 'text-2xl',
+    md: 'text-4xl',
+    lg: 'text-5xl',
+  } as const;
+  return (
+    <span
+      className={`bg-gold-foil bg-clip-text font-display font-extrabold uppercase tracking-[0.18em] text-transparent ${sizes[size]}`}
+      style={{ WebkitBackgroundClip: 'text' }}
+    >
+      Durak
+    </span>
+  );
+};
