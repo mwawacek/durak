@@ -5,9 +5,9 @@ NestJS 10 service that owns **all** game logic. Mobile client only renders state
 ## Run
 
 ```bash
-npm run dev:backend          # nest start --watch on :3001
+npm run dev:backend          # nest start --watch on :3010
 npm run start:backend        # production (after `npm run build:backend`)
-curl localhost:3001/health   # liveness
+curl localhost:3010/health   # liveness
 ```
 
 Env: `apps/backend/.env` (copy from `.env.example`). For game-only mode skip Postgres entirely — `DB_*` vars are only consumed by the player module.

@@ -14,7 +14,7 @@ export interface AppConfig {
 
 export const configuration = (): AppConfig => ({
   nodeEnv: (process.env.NODE_ENV as AppConfig['nodeEnv']) ?? 'development',
-  port: parseInt(process.env.PORT ?? '3001', 10),
+  port: parseInt(process.env.PORT ?? '3010', 10),
   corsOrigin: process.env.CORS_ORIGIN ?? '*',
   db: {
     host: process.env.DB_HOST ?? 'localhost',

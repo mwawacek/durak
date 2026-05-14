@@ -4,13 +4,13 @@
  * (oder erstellt selbst einen) und spielt regelkonforme, einfache Züge.
  *
  * Nutzung:
- *   node tools/bot.mjs [name] [--host http://localhost:3001] [--room <roomId>] [--host-room]
+ *   node tools/bot.mjs [name] [--host http://localhost:3010] [--room <roomId>] [--host-room]
  *
  * Beispiele:
  *   node tools/bot.mjs               # Bot "Bot-1", tritt dem ersten offenen Raum bei
  *   node tools/bot.mjs Olga          # Bot mit Namen "Olga"
  *   node tools/bot.mjs Olga --host-room  # Bot erstellt + hostet einen Raum und wartet
- *   node tools/bot.mjs --host http://192.168.1.23:3001
+ *   node tools/bot.mjs --host http://192.168.1.23:3010
  */
 import { io } from '../node_modules/socket.io-client/build/esm/index.js';
 import { SOCKET_EVENTS, RANK_ORDER, beats, ranksOnTable } from '../packages/shared/dist/index.js';
@@ -23,7 +23,7 @@ const getFlag = (flag) => {
   const i = args.indexOf(flag);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const HOST = getFlag('--host') ?? 'http://localhost:3001';
+const HOST = getFlag('--host') ?? 'http://localhost:3010';
 const ROOM_ID = getFlag('--room');
 const HOST_ROOM = args.includes('--host-room');
 

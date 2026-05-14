@@ -44,7 +44,7 @@ npm run build:shared
 ### Run the backend (no DB)
 ```bash
 npm run dev:backend
-# → listens on :3001, visit http://localhost:3001/health
+# → listens on :3010, visit http://localhost:3010/health
 ```
 
 ### Run the backend with Postgres
@@ -60,12 +60,12 @@ npm run dev:web
 # → Vite dev server on http://localhost:5173
 ```
 
-Vite binds to `0.0.0.0`, so you can also open it from your phone over LAN at `http://<your-laptop-ip>:5173`. The web client auto-resolves the backend URL to the same host on port 3001.
+Vite binds to `0.0.0.0`, so you can also open it from your phone over LAN at `http://<your-laptop-ip>:5173`. The web client auto-resolves the backend URL to the same host on port 3010.
 
 To override the backend URL, set `VITE_API_URL` in `apps/web/.env.local`:
 
 ```bash
-echo "VITE_API_URL=http://192.168.1.23:3001" > apps/web/.env.local
+echo "VITE_API_URL=http://192.168.1.23:3010" > apps/web/.env.local
 ```
 
 ### Testing alone — the Bot
@@ -96,7 +96,7 @@ npm run bot -- MyBot
 npm run bot -- MyBot --room <roomId>
 
 # Bot targets a non-default backend (LAN IP / prod):
-npm run bot -- MyBot --host http://192.168.1.23:3001 --host-room
+npm run bot -- MyBot --host http://192.168.1.23:3010 --host-room
 ```
 
 The bot uses a simple heuristic (lowest non-trump for attacks, cheapest legal defense, take-cards if no defense). Enough to exercise all engine paths and play through entire games.

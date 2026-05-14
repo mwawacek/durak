@@ -29,7 +29,7 @@ npm install
 npm run build:shared      # MUST run before backend/mobile typecheck
 
 # Development (separate terminals)
-npm run dev:backend       # NestJS on :3001
+npm run dev:backend       # NestJS on :3010
 npm run dev:web           # Vite dev server on :5173
 
 # Solo testing — bot opponent (Durak needs ≥ 2 players)

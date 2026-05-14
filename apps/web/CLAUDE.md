@@ -15,7 +15,7 @@ Vite listens on `0.0.0.0` — open from your phone via `http://<laptop-ip>:5173`
 `src/services/socket.ts:resolveApiUrl()` resolves the backend in this order:
 
 1. `VITE_API_URL` env var — set in `apps/web/.env.local` for an explicit override.
-2. **Dev mode**: same host as the Vite server, port 3001 (so the phone hits `http://<laptop-ip>:3001`).
+2. **Dev mode**: same host as the Vite server, port 3010 (so the phone hits `http://<laptop-ip>:3010`).
 3. **Prod build**: `window.location.origin` (assumes the backend is served behind the same domain).
 
 ## Architecture
