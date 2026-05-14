@@ -7,13 +7,13 @@ import { useGameStore } from '@/store/gameStore';
  *
  * Priority:
  *   1. `VITE_API_URL` build-time env var (set in `.env` / `.env.local`)
- *   2. Same host as the page, port 3000 (typical Vite-on-laptop dev)
+ *   2. Same host as the page, port 3001 (typical Vite-on-laptop dev)
  *   3. Same origin (deployed alongside backend behind a single domain)
  *
- * In dev (`import.meta.env.DEV`) we always pin to :3000 on the same host
+ * In dev (`import.meta.env.DEV`) we always pin to :3001 on the same host
  * — this lets a phone on the LAN hit the laptop without env-var gymnastics.
  */
-const BACKEND_PORT = 3000;
+const BACKEND_PORT = 3001;
 
 const resolveApiUrl = (): string => {
   const fromEnv = import.meta.env.VITE_API_URL;

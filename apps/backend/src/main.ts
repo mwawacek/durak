@@ -11,7 +11,7 @@ async function bootstrap(): Promise<void> {
   });
 
   const config = app.get(ConfigService);
-  const port = config.get<number>('port', 3000);
+  const port = config.get<number>('port', 3001);
   const corsOrigin = config.get<string>('corsOrigin', '*');
 
   app.enableCors({
