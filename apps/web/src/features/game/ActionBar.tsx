@@ -67,12 +67,12 @@ export const ActionBar = ({
       >
         <div>
           <p
-            className="truncate font-serif text-xl font-bold text-cream"
+            className="truncate font-serif text-2xl italic leading-tight text-cream"
             style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
           >
             {banner.line}
           </p>
-          <p className="mt-0.5 truncate text-[9px] font-semibold uppercase tracking-[0.25em] text-cream-dim">
+          <p className="mt-1 truncate font-display text-[9px] font-bold uppercase tracking-[0.35em] text-cream-dim">
             {banner.sub}
           </p>
         </div>
@@ -82,13 +82,23 @@ export const ActionBar = ({
         className="flex items-center justify-between gap-3 px-3"
         style={{ height: actionRowHeight }}
       >
-        <div className="flex shrink-0 items-center gap-2 rounded-pill border border-gold/40 bg-mahogany-dark/70 py-1 pl-1 pr-3">
-          <RingedAvatar initials={(playerName?.[0] ?? 'D').toUpperCase()} active={active} size={26} />
+        <div
+          className={cn(
+            'flex shrink-0 items-center gap-2 rounded-pill border bg-mahogany-dark/80 py-1 pl-1 pr-3 backdrop-blur-sm transition-shadow',
+            active ? 'border-gold-light shadow-[0_0_12px_rgba(212,165,72,0.25)]' : 'border-gold/40',
+          )}
+        >
+          <RingedAvatar initials={(playerName?.[0] ?? 'D').toUpperCase()} active={active} size={28} />
           <div className="min-w-0">
-            <p className="max-w-[80px] truncate font-serif text-xs font-bold text-cream-soft leading-tight">
+            <p className="max-w-[80px] truncate font-serif italic text-sm leading-tight text-cream-soft">
               {playerName ?? 'Du'}
             </p>
-            <p className={cn('text-[8px] font-bold tracking-widest', roleColor(isAttacker, isDefender, needsConfirm))}>
+            <p
+              className={cn(
+                'font-display text-[8px] font-bold tracking-[0.35em]',
+                roleColor(isAttacker, isDefender, needsConfirm),
+              )}
+            >
               {roleLabel(isAttacker, isDefender, needsConfirm)}
             </p>
           </div>

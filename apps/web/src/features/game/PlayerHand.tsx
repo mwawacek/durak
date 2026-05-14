@@ -47,15 +47,17 @@ export const PlayerHand = ({
           const playable = !playableIds || playableIds.has(card.id);
           const isTrump = trumpSuit ? card.suit === trumpSuit : false;
           const isSelected = selectedCardId === card.id;
+          const liftPx = isSelected ? -14 - yLift : yLift;
           return (
             <div
               key={card.id}
+              className="transition-transform duration-200 ease-out"
               style={{
                 marginLeft: marginH,
                 marginRight: marginH,
-                transform: `translateY(${yLift}px) rotate(${angle}deg)`,
+                transform: `translateY(${liftPx}px) rotate(${angle}deg)`,
                 transformOrigin: 'bottom center',
-                zIndex: i,
+                zIndex: isSelected ? 999 : i,
               }}
             >
               <Card

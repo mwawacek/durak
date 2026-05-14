@@ -17,17 +17,19 @@ export const ConnectionBadge = (): JSX.Element | null => {
     <div className="pointer-events-none fixed right-3 top-3 z-40 flex justify-end safe-pt safe-pr">
       <div
         className={cn(
-          'flex items-center gap-2 rounded-pill border bg-mahogany-dark/85 px-3 py-1 text-[11px] font-semibold tracking-wide text-cream shadow-card',
-          connected ? 'border-gold/40' : 'border-red/60',
+          'flex items-center gap-2 rounded-pill border bg-mahogany-dark/85 px-3 py-1 font-display text-[9px] font-bold uppercase tracking-[0.3em] shadow-card backdrop-blur-sm',
+          connected ? 'border-gold/40 text-cream-dim' : 'border-red/60 text-red-count',
         )}
       >
         <span
           className={cn(
             'h-2 w-2 rounded-full',
-            connected ? 'bg-defending' : 'animate-pulse-outline bg-red',
+            connected
+              ? 'bg-defending shadow-[0_0_6px_rgba(95,189,131,0.7)]'
+              : 'animate-pulse-outline bg-red shadow-[0_0_6px_rgba(200,58,54,0.6)]',
           )}
         />
-        {connected ? 'verbunden' : 'verbinden…'}
+        {connected ? 'verbunden' : 'verbinden …'}
       </div>
     </div>
   );

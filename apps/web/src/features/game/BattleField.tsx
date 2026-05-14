@@ -1,4 +1,5 @@
 import { memo } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import type { AttackPair } from '@durak/shared';
 import { Card } from '@/components/Card';
 import { cn } from '@/lib/cn';
@@ -28,21 +29,32 @@ const BattleFieldImpl = ({
   return (
     <div
       className={cn(
-        'flex max-w-full flex-wrap items-center justify-center rounded-2xl bg-black/20 p-2.5',
+        'flex max-w-full flex-wrap items-center justify-center rounded-2xl border border-gold/15 bg-black/25 p-2.5 backdrop-blur-[1px]',
+        'shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)]',
         className,
       )}
       style={{ gap }}
     >
-      {pairs.map((p) => (
-        <BattlePair
-          key={p.attack.id}
-          pair={p}
-          size={size}
-          cardW={cardW}
-          highlighted={highlightedAttackIds?.has(p.attack.id) ?? false}
-          onClick={onAttackPress ? () => onAttackPress(p.attack.id) : undefined}
-        />
-      ))}
+      <AnimatePresence initial={false}>
+        {pairs.map((p) => (
+          <motion.div
+            key={p.attack.id}
+            layout
+            initial={{ opacity: 0, y: -12, scale: 0.92 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+            transition={{ duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
+          >
+            <BattlePair
+              pair={p}
+              size={size}
+              cardW={cardW}
+              highlighted={highlightedAttackIds?.has(p.attack.id) ?? false}
+              onClick={onAttackPress ? () => onAttackPress(p.attack.id) : undefined}
+            />
+          </motion.div>
+        ))}
+      </AnimatePresence>
     </div>
   );
 };
@@ -72,17 +84,18 @@ const BattlePair = ({ pair, size, cardW, highlighted, onClick }: PairProps): JSX
         style={{ position: 'absolute', top: 0, left: 0 }}
       />
       {pair.defense ? (
-        <Card
-          card={pair.defense}
-          size={size}
-          defended
-          rotate={16}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
+          animate={{ opacity: 1, scale: 1, rotate: 16 }}
+          transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
           style={{
             position: 'absolute',
             top: cardW * 0.28,
             left: cardW * 0.18,
           }}
-        />
+        >
+          <Card card={pair.defense} size={size} defended />
+        </motion.div>
       ) : null}
       {undefended ? (
         <div
