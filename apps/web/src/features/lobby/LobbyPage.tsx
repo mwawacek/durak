@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { Plus } from 'lucide-react';
 import {
   SOCKET_EVENTS,
-  MIN_PLAYERS,
   type CreateRoomResult,
   type JoinRoomResult,
   type RoomPublic,
@@ -11,7 +10,7 @@ import {
 import { useGameStore } from '@/store/gameStore';
 import { emitAckOrToast } from '@/services/socket';
 import { BrassButton } from '@/components/BrassButton';
-import { WordMark } from '@/App';
+import { WordMark } from '@/components/WordMark';
 import { RoomList } from './RoomList';
 import { MyRoomPanel } from './MyRoomPanel';
 import { CreateRoomDialog } from './CreateRoomDialog';
@@ -89,12 +88,7 @@ export const LobbyPage = (): JSX.Element => {
               {openRooms.length}
             </span>
           </div>
-          <RoomList
-            rooms={openRooms}
-            onJoin={handleJoin}
-            joinPending={joinPending}
-            minPlayers={MIN_PLAYERS}
-          />
+          <RoomList rooms={openRooms} onJoin={handleJoin} joinPending={joinPending} />
         </section>
       </main>
 

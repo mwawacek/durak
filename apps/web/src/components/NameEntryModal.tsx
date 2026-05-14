@@ -1,7 +1,7 @@
 import { useId, useState, type FormEvent } from 'react';
 import { motion } from 'framer-motion';
 import { useGameStore } from '@/store/gameStore';
-import { WordMark } from '@/App';
+import { WordMark } from './WordMark';
 import { BrassButton } from './BrassButton';
 
 interface Props {

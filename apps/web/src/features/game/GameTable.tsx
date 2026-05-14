@@ -75,10 +75,10 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
   const playerName = useGameStore((s) => s.playerName);
   const setError = useGameStore((s) => s.setError);
 
-  // No safe-area inset hook on web — read CSS env() via JS as a fallback,
-  // and add a sensible baseline. The Tailwind .safe-pt utility covers the
-  // visual safe area; here we just need a numeric padding to subtract
-  // from the table height.
+  // Baseline pixels reserved for the system status bar at the top and the
+  // home-indicator + safe-area at the bottom. The visible safe-area itself
+  // is handled by Tailwind .safe-* utilities; this just steals room from
+  // the ellipse geometry so seats don't sit under the notch / home bar.
   const topInset = 24;
   const reservedBottom = HAND_BLOCK_H + ACTION_BLOCK_H + BANNER_BLOCK_H + 24;
   const geometry = useTableGeometry({ topInset, reservedBottom });
@@ -242,7 +242,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
   const loser = isFinished ? game.players.find((p) => p.id === game.loserId) : undefined;
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden bg-bg text-cream touch-game safe-pl safe-pr">
+    <div className="relative h-dvh w-full overflow-hidden text-bone touch-game safe-pl safe-pr">
       {/* Table layer */}
       <div
         className="pointer-events-none absolute left-0"

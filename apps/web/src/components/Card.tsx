@@ -90,7 +90,6 @@ const CardImpl = ({
 
 export const Card = memo(CardImpl);
 
-const FACE_MONOGRAM: Record<string, string> = { J: 'J', Q: 'Q', K: 'K', A: 'A' };
 const FACE_RANKS = new Set<Rank>(['J', 'Q', 'K', 'A']);
 
 interface FaceProps {
@@ -257,7 +256,6 @@ const Pips = ({ rank, suit }: FaceProps): JSX.Element | null => {
 
 const FaceMedallion = ({ rank, suit }: FaceProps): JSX.Element => {
   const suitColor = isRedSuit(suit) ? tokens.cardSuitRed : tokens.cardSuitInk;
-  const monogram = FACE_MONOGRAM[rank] ?? rank;
   return (
     <g>
       {/* Suit glyph above */}
@@ -284,7 +282,7 @@ const FaceMedallion = ({ rank, suit }: FaceProps): JSX.Element => {
         dominantBaseline="central"
         style={{ fontVariationSettings: '"wdth" 95' }}
       >
-        {monogram}
+        {rank}
       </text>
     </g>
   );

@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
-import { attachSocketHandlers, } from '@/services/socketHandlers';
+import { attachSocketHandlers } from '@/services/socketHandlers';
 import { getSocket } from '@/services/socket';
 import { useNamePersistence } from '@/hooks/useNamePersistence';
 import { useLobbyJoin } from '@/hooks/useLobbyJoin';
@@ -16,8 +16,8 @@ export const App = (): JSX.Element => {
 
   useEffect(() => {
     attachSocketHandlers();
-    // Eagerly create the singleton so the initial connect cycle starts before
-    // any user input. Idempotent (returns the cached socket).
+    // Eager singleton so the initial connect cycle starts before any user
+    // input. Idempotent.
     getSocket();
   }, []);
 
@@ -32,34 +32,5 @@ export const App = (): JSX.Element => {
         <Route path="*" element={<NotFoundRoute />} />
       </Routes>
     </BrowserRouter>
-  );
-};
-
-/**
- * Distinctive wordmark — variable Bricolage Grotesque at wide width / extra-bold.
- * Crimson-to-bone gradient text so it carries the "Midnight Velvet" identity.
- */
-export const WordMark = ({
-  size = 'lg',
-}: {
-  size?: 'sm' | 'md' | 'lg';
-}): JSX.Element => {
-  const sizes = {
-    sm: 'text-3xl',
-    md: 'text-5xl',
-    lg: 'text-6xl',
-  } as const;
-  return (
-    <span
-      className={`bg-clip-text font-display uppercase tracking-[-0.02em] text-transparent ${sizes[size]}`}
-      style={{
-        WebkitBackgroundClip: 'text',
-        fontVariationSettings: '"wdth" 95, "wght" 800',
-        backgroundImage:
-          'linear-gradient(180deg, #fff 0%, #fafaf7 35%, #ff5572 100%)',
-      }}
-    >
-      Durak
-    </span>
   );
 };

@@ -98,16 +98,16 @@ interface ScreenProps {
 }
 
 const PlaceholderScreen = ({ title, sub }: ScreenProps): JSX.Element => (
-  <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-bg px-6 text-center text-cream safe-pt safe-pb">
-    <h1 className="font-serif text-2xl italic">{title}</h1>
-    {sub ? <p className="text-sm text-cream-dim">{sub}</p> : null}
+  <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center text-bone safe-pt safe-pb">
+    <h1 className="font-display text-2xl">{title}</h1>
+    {sub ? <p className="text-sm text-bone-mute">{sub}</p> : null}
   </main>
 );
 
 const ErrorScreen = ({ title, body }: ScreenProps): JSX.Element => (
-  <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-6 text-center text-cream safe-pt safe-pb">
-    <h1 className="font-serif text-2xl italic">{title}</h1>
-    {body ? <p className="text-sm text-cream-dim">{body}</p> : null}
+  <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center text-bone safe-pt safe-pb">
+    <h1 className="font-display text-2xl">{title}</h1>
+    {body ? <p className="text-sm text-bone-mute">{body}</p> : null}
     <Link to="/">
       <BrassButton variant="primary" label="Zur Lobby" />
     </Link>

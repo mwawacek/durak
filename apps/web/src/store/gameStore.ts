@@ -13,11 +13,9 @@ interface GameStoreState {
   game: GameStatePrivate | null;
   lastError: string | null;
 
-  setConnected: (connected: boolean) => void;
   setIdentity: (playerId: string, playerName: string) => void;
   setLobbyJoined: (joined: boolean) => void;
   upsertRooms: (rooms: RoomPublic[]) => void;
-  removeRoom: (roomId: string) => void;
   setCurrentRoom: (roomId: string | null) => void;
   setGame: (game: GameStatePrivate | null) => void;
   setError: (error: string | null) => void;
@@ -60,7 +58,6 @@ export const useGameStore = create<GameStoreState>((set) => ({
   game: null,
   lastError: null,
 
-  setConnected: (connected) => set({ connected }),
   setIdentity: (playerId, playerName) => set({ playerId, playerName }),
   setLobbyJoined: (lobbyJoined) => set({ lobbyJoined }),
   upsertRooms: (incoming) =>
@@ -69,12 +66,6 @@ export const useGameStore = create<GameStoreState>((set) => ({
       for (const r of incoming) byId.set(r.id, r);
       const next = [...byId.values()].sort((a, b) => b.createdAt - a.createdAt);
       if (roomsEqual(state.rooms, next)) return state;
-      return { rooms: next };
-    }),
-  removeRoom: (roomId) =>
-    set((s) => {
-      const next = s.rooms.filter((r) => r.id !== roomId);
-      if (next.length === s.rooms.length) return s;
       return { rooms: next };
     }),
   setCurrentRoom: (roomId) => set({ currentRoomId: roomId }),

@@ -6,7 +6,6 @@ interface Props {
   rooms: RoomPublic[];
   onJoin: (room: RoomPublic) => void;
   joinPending: boolean;
-  minPlayers: number;
 }
 
 export const RoomList = ({ rooms, onJoin, joinPending }: Props): JSX.Element => {
