@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Card, GameStatePrivate } from '@durak/shared';
+import { Card, ERROR_CODES, GameStatePrivate } from '@durak/shared';
 import { DeckService } from './deck.service';
 import {
   GameStateInternal,
@@ -9,6 +9,7 @@ import {
 } from './game.types';
 import {
   endTurn,
+  GameRuleError,
   initGame,
   markConnected,
   markDisconnected,
@@ -33,7 +34,10 @@ export class GameService {
 
   create(roomId: string, players: { id: string; name: string }[], dealerIdx = 0): GameStateInternal {
     if (this.games.has(roomId)) {
-      throw new Error(`Game for room ${roomId} already exists`);
+      throw new GameRuleError(
+        ERROR_CODES.GAME_ALREADY_STARTED,
+        `Game for room ${roomId} already exists`,
+      );
     }
     const deck = this.deck.shuffle(this.deck.buildDeck());
     const state = initGame({ roomId, players, deck, dealerIdx, now: Date.now() });
@@ -52,7 +56,9 @@ export class GameService {
 
   private apply(roomId: string, mutation: GameMutation): GameStateInternal {
     const current = this.games.get(roomId);
-    if (!current) throw new Error(`No game for room ${roomId}`);
+    if (!current) {
+      throw new GameRuleError(ERROR_CODES.ROOM_NOT_FOUND, `No game for room ${roomId}`);
+    }
     const next = mutation(current);
     this.games.set(roomId, next);
     return next;

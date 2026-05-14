@@ -85,7 +85,10 @@ export const LobbyPage = (): JSX.Element => {
         </section>
       </main>
 
-      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-5 pb-6 safe-pb">
+      <div
+        className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-5"
+        style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom, 0px))' }}
+      >
         <div className="pointer-events-auto">
           <BrassButton
             variant="primary"

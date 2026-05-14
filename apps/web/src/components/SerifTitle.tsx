@@ -5,6 +5,7 @@ interface Props {
   children: ReactNode;
   size?: 'md' | 'lg' | 'xl';
   className?: string;
+  id?: string;
 }
 
 const SIZE_CLASSES = {
@@ -18,13 +19,10 @@ const SIZE_CLASSES = {
  * the inline `style={{ fontWeight: 500, letterSpacing: '-0.015em' }}` we
  * otherwise repeat across half a dozen panels.
  */
-export const SerifTitle = ({ children, size = 'md', className }: Props): JSX.Element => (
+export const SerifTitle = ({ children, size = 'md', className, id }: Props): JSX.Element => (
   <h1
-    className={cn(
-      'font-serif text-text-primary',
-      SIZE_CLASSES[size],
-      className,
-    )}
+    id={id}
+    className={cn('font-serif text-text-primary', SIZE_CLASSES[size], className)}
     style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
   >
     {children}

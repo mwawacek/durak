@@ -159,26 +159,25 @@ the round into a stuck state. Defender keeps agency in two cases:
 - `passConfirmations: Set<number>` is **always cleared** when a new card
   lands on the table — pile-on or defense — because every new card may
   invite new pile-ons and stale confirmations would be misleading.
-- The mobile client computes `playableCardIds` and `candidateAttackIds` from
+- The web client computes `playableCardIds` and `candidateAttackIds` from
   the same shared rule helpers (`beats`, `ranksOnTable`, `tableFullyDefended`,
   `canRedirectWith`) — no client-side rule reimplementation. If a rule
-  changes in shared, both engine and mobile pick it up.
+  changes in shared, both engine and web pick it up.
 - `MAX_TABLE_PAIRS`, `MIN_PLAYERS`, `MAX_PLAYERS`, `STARTING_HAND_SIZE`
-  live in `@durak/shared` so engine, mobile, and bot agree.
+  live in `@durak/shared` so engine, web, and bot agree.
 
-## Player count layout (mobile)
+## Player count layout (web client)
 
-- 2–3 players (1–2 opponents): seats are full-size (`size="normal"`,
-  100 px box width). Plenty of room.
-- 4 players (3 opponents): same.
-- 5–6 players (4–5 opponents): seats automatically switch to
-  `size="compact"` (smaller card-back stack, smaller avatar, narrower
-  box width 70–84 px) so they don't overlap on a 390 px screen.
-- The choice is in `apps/mobile/src/screens/GameScreen.tsx` (`seatSize`,
-  `seatBoxWidth`).
-- Opponent angle distribution is in
-  `apps/mobile/src/hooks/useTableLayout.ts` (`ANGLES_BY_COUNT`). Edit
-  there if seat positions need rebalancing.
+- The May-2026 redesign dropped the oval-table polar geometry. Opponents
+  now sit in a horizontal strip above the play area
+  (`apps/web/src/features/game/OpponentRow.tsx`).
+- 1–3 opponents: full chip (avatar 22 px, name + role status, 90 px row).
+- 4+ opponents: `COMPACT_THRESHOLD = 4` flips the row into compact mode
+  (avatar 18 px, name only, 80 px row, smaller card-fan backs). Fits the
+  worst-case 5-opponent row on a 390 px viewport.
+- Edit `OpponentRow.tsx` if seat ordering or sizing needs to change —
+  the per-count case is encapsulated there. There is no longer a
+  separate seat-angle config file.
 
 ## When to invoke this skill
 

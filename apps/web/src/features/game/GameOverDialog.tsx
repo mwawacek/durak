@@ -1,8 +1,8 @@
-import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useGameStore } from '@/store/gameStore';
 import { BrassButton } from '@/components/BrassButton';
 import { SerifTitle } from '@/components/SerifTitle';
+import { ModalShell } from '@/components/ModalShell';
 
 interface Props {
   iAmLoser: boolean;
@@ -18,17 +18,13 @@ export const GameOverDialog = ({ iAmLoser, loserName }: Props): JSX.Element => {
     setCurrentRoom(null);
     navigate('/', { replace: true });
   };
+  const titleId = 'gameover-title';
 
   return (
-    <div className="fixed inset-0 z-40 flex items-center justify-center bg-bg-base/80 px-6 backdrop-blur-md safe-pt safe-pb">
-      <motion.div
-        className="relative w-full max-w-sm overflow-hidden rounded-sheet border border-line-mid bg-bg-card p-8 text-center"
-        initial={{ opacity: 0, scale: 0.94, y: 12 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
-      >
+    <ModalShell onClose={handleClose} labelledById={titleId}>
+      <div className="relative overflow-hidden rounded-sheet border border-line-mid bg-bg-card p-8 text-center">
         <span className="label-eyebrow">Spielende</span>
-        <SerifTitle size="lg" className="mt-3 leading-tight">
+        <SerifTitle id={titleId} size="lg" className="mt-3 leading-tight">
           {iAmLoser ? 'Du bist Durak' : loserName ? `${loserName} ist Durak` : 'Unentschieden'}
         </SerifTitle>
         <p className="mt-2 font-sans text-sm text-text-secondary">
@@ -42,7 +38,7 @@ export const GameOverDialog = ({ iAmLoser, loserName }: Props): JSX.Element => {
             onClick={handleClose}
           />
         </div>
-      </motion.div>
-    </div>
+      </div>
+    </ModalShell>
   );
 };

@@ -41,8 +41,10 @@ type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
 const RECONNECT_GRACE_MS = 30_000;
 
+// CORS mirrors main.ts: when CORS_ORIGIN is "*" we cannot send credentials
+// (browsers reject the combination), so credentials stay false.
 @WebSocketGateway({
-  cors: { origin: '*', credentials: true },
+  cors: { origin: process.env.CORS_ORIGIN ?? '*', credentials: false },
   transports: ['websocket', 'polling'],
 })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {

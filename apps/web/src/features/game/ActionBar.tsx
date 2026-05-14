@@ -27,8 +27,8 @@ export const ActionBar = ({
   busy,
 }: Props): JSX.Element => (
   <div className="flex flex-col gap-2 pb-2">
-    {/* Headline block */}
-    <div className="px-4 text-center">
+    {/* Headline block — aria-live so screen readers announce turn changes. */}
+    <div className="px-4 text-center" role="status" aria-live="polite" aria-atomic="true">
       <p
         className="font-serif text-[22px] font-medium leading-tight text-text-primary"
         style={{ letterSpacing: '-0.015em' }}

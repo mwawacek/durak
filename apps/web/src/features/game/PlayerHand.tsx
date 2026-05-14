@@ -36,14 +36,21 @@ export const PlayerHand = ({
     return () => observer.disconnect();
   }, []);
 
-  const n = hand.length;
-  const cardW = handCardWidth(n);
+  const cardCount = hand.length;
+  const cardW = handCardWidth(cardCount);
   const available = Math.max(0, containerW - 24);
-  let gap = 6;
-  if (n > 1) {
-    const totalNominal = n * cardW + (n - 1) * gap;
+  // Floor for the visible width per card → keeps tap targets usable when the
+  // hand grows huge. The leftmost edge of each card stays at least
+  // MIN_VISIBLE_PX wide so the rank index remains tappable.
+  const MIN_VISIBLE_PX = 28;
+  const DEFAULT_GAP_PX = 6;
+  let gapPx = DEFAULT_GAP_PX;
+  if (cardCount > 1) {
+    const totalNominal = cardCount * cardW + (cardCount - 1) * gapPx;
     if (totalNominal > available) {
-      gap = (available - cardW) / (n - 1) - cardW;
+      const overlap = (available - cardW) / (cardCount - 1) - cardW;
+      const maxOverlap = -(cardW - MIN_VISIBLE_PX);
+      gapPx = Math.max(maxOverlap, overlap);
     }
   }
 
@@ -63,7 +70,7 @@ export const PlayerHand = ({
           <div
             key={card.id}
             style={{
-              marginLeft: i === 0 ? 0 : gap,
+              marginLeft: i === 0 ? 0 : gapPx,
               zIndex: isSelected ? 100 + i : i,
             }}
           >

@@ -1,8 +1,8 @@
 import { useId, useState, type FormEvent } from 'react';
-import { motion } from 'framer-motion';
 import { MIN_PLAYERS, MAX_PLAYERS } from '@durak/shared';
 import { BrassButton } from '@/components/BrassButton';
 import { SerifTitle } from '@/components/SerifTitle';
+import { ModalShell } from '@/components/ModalShell';
 import { cn } from '@/lib/cn';
 
 interface Props {
@@ -11,10 +11,14 @@ interface Props {
   defaultName: string;
 }
 
+const DEFAULT_MAX_PLAYERS = 4;
+const ROOM_NAME_MAX_LEN = 48;
+
 export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JSX.Element => {
   const [name, setName] = useState(defaultName);
-  const [maxPlayers, setMaxPlayers] = useState(4);
+  const [maxPlayers, setMaxPlayers] = useState(DEFAULT_MAX_PLAYERS);
   const inputId = useId();
+  const titleId = useId();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -27,23 +31,15 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
   );
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex flex-col bg-bg-base/80 backdrop-blur-md"
-      onClick={onCancel}
-    >
-      <motion.form
-        onClick={(e) => e.stopPropagation()}
+    <ModalShell onClose={onCancel} variant="bottom-sheet" labelledById={titleId}>
+      <form
         onSubmit={handleSubmit}
-        className="mt-auto w-full rounded-t-sheet border border-line-mid bg-bg-card p-6 safe-pb sm:m-auto sm:max-w-md sm:rounded-sheet sm:p-7"
-        initial={{ opacity: 0, y: 100 }}
-        animate={{ opacity: 1, y: 0 }}
-        exit={{ opacity: 0, y: 100 }}
-        transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
+        className="rounded-t-sheet border border-line-mid bg-bg-card p-6 sm:rounded-sheet sm:p-7"
       >
         <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line-mid sm:hidden" />
 
         <span className="label-eyebrow">Neuer Tisch</span>
-        <SerifTitle size="md" className="mt-1">
+        <SerifTitle id={titleId} size="md" className="mt-1">
           Wie soll er heißen?
         </SerifTitle>
 
@@ -55,17 +51,19 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          maxLength={48}
+          maxLength={ROOM_NAME_MAX_LEN}
           autoFocus
           className="mt-2 w-full rounded-card border border-line-mid bg-bg-mid px-4 py-3.5 font-sans text-base text-text-primary placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/20"
         />
 
         <p className="label-eyebrow mt-6">Max. Spieler</p>
-        <div className="mt-2 grid grid-cols-5 gap-2">
+        <div className="mt-2 grid grid-cols-5 gap-2" role="radiogroup" aria-label="Maximale Spielerzahl">
           {options.map((n) => (
             <button
               key={n}
               type="button"
+              role="radio"
+              aria-checked={maxPlayers === n}
               onClick={() => setMaxPlayers(n)}
               className={cn(
                 'flex h-12 items-center justify-center rounded-card border font-sans text-base font-semibold transition-all active:scale-[0.97]',
@@ -83,7 +81,7 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
           <BrassButton variant="secondary" label="Abbrechen" onClick={onCancel} />
           <BrassButton variant="primary" type="submit" label="Erstellen" size="lg" />
         </div>
-      </motion.form>
-    </div>
+      </form>
+    </ModalShell>
   );
 };

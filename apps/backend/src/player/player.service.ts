@@ -1,7 +1,13 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ERROR_CODES } from '@durak/shared';
 import { PlayerEntity } from './player.entity';
+import { GameRuleError } from '../game/game.engine';
+
+const NAME_MIN_LEN = 2;
+const NAME_MAX_LEN = 32;
+const GUEST_PREFIX = 'guest-';
 
 /**
  * Tracks live (socket-connected) players plus persists profile data.
@@ -22,8 +28,11 @@ export class PlayerService {
 
   async register(name: string, socketId: string): Promise<{ id: string; name: string }> {
     const trimmed = name.trim();
-    if (trimmed.length < 2 || trimmed.length > 32) {
-      throw new Error('Name must be 2-32 characters');
+    if (trimmed.length < NAME_MIN_LEN || trimmed.length > NAME_MAX_LEN) {
+      throw new GameRuleError(
+        ERROR_CODES.INVALID_PAYLOAD,
+        `Name muss ${NAME_MIN_LEN}–${NAME_MAX_LEN} Zeichen lang sein`,
+      );
     }
 
     let persisted: Pick<PlayerEntity, 'id' | 'name'> | null = null;
@@ -43,14 +52,14 @@ export class PlayerService {
     // they don't hijack the first's seat.
     const slug =
       trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'anon';
-    let id = persisted?.id ?? `guest-${slug}`;
+    let id = persisted?.id ?? `${GUEST_PREFIX}${slug}`;
 
     if (!persisted) {
       const existing = this.onlinePlayers.get(id);
       if (existing && existing.socketId !== socketId) {
         // Real collision (different live socket): mint a new id with a suffix.
         const suffix = Math.random().toString(36).slice(2, 6);
-        id = `guest-${slug}-${suffix}`;
+        id = `${GUEST_PREFIX}${slug}-${suffix}`;
       }
     }
 
@@ -96,7 +105,7 @@ export class PlayerService {
   }
 
   async recordGameResult(playerId: string, won: boolean, wasDurak: boolean): Promise<void> {
-    if (!this.playerRepo || playerId.startsWith('guest-')) return;
+    if (!this.playerRepo || playerId.startsWith(GUEST_PREFIX)) return;
     try {
       await this.playerRepo
         .createQueryBuilder()
