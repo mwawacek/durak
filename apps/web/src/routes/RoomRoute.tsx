@@ -1,10 +1,18 @@
+import { lazy, Suspense } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useGameStore } from '@/store/gameStore';
 import { useRoomMembership } from '@/hooks/useRoomMembership';
 import { NameEntryModal } from '@/components/NameEntryModal';
 import { BrassButton } from '@/components/BrassButton';
 import { WaitingRoom } from '@/features/waiting/WaitingRoom';
-import { GameTable } from '@/features/game/GameTable';
+
+// Code-split the game table — it pulls in Card, SVG layouts, and Framer
+// Motion, none of which are needed for the lobby / waiting-room paths.
+// On a fresh /r/:id deep link the user spends a few hundred ms in the
+// WaitingRoom anyway, which is plenty of time to fetch the game chunk.
+const GameTable = lazy(() =>
+  import('@/features/game/GameTable').then((m) => ({ default: m.GameTable })),
+);
 
 /**
  * /r/:roomId — entry point for shareable room URLs.
@@ -69,7 +77,11 @@ export const RoomRoute = (): JSX.Element => {
     return <PlaceholderScreen title="Warte auf Spielstart…" sub={room.name} />;
   }
 
-  return <GameTable game={game} roomId={roomId} />;
+  return (
+    <Suspense fallback={<PlaceholderScreen title="Lade Spiel…" sub={room.name} />}>
+      <GameTable game={game} roomId={roomId} />
+    </Suspense>
+  );
 };
 
 interface ScreenProps {

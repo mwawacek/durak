@@ -68,4 +68,9 @@
     padding-left: env(safe-area-inset-left, 0px);
     padding-right: env(safe-area-inset-right, 0px);
   }
+
+  /* Momentum-scrolling for the lobby room list on iOS. */
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+  }
 }

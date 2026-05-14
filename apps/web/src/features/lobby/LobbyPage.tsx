@@ -79,7 +79,7 @@ export const LobbyPage = (): JSX.Element => {
         />
       </header>
 
-      <main className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 pb-6 pt-4">
+      <main className="scroll-touch flex flex-1 flex-col gap-5 overflow-y-auto px-5 pb-6 pt-4">
         {myRoom ? <MyRoomPanel room={myRoom} /> : null}
 
         <section className="flex flex-col gap-2">
