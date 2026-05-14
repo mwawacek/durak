@@ -1,5 +1,5 @@
 import type { Card as CardType, Suit } from '@durak/shared';
-import { SUIT_GLYPH } from '@durak/shared';
+import { SUIT_GLYPH, isRedSuit } from '@durak/shared';
 import { MiniCard } from '@/components/Card';
 import { tokens } from '@/theme/tokens';
 
@@ -9,14 +9,13 @@ interface Props {
   deckCount: number;
 }
 
-const isRed = (s: Suit | null): boolean => s === 'hearts' || s === 'diamonds';
-
 /**
  * Trump indicator + draw-pile counter. Left: mini trump card. Right:
  * remaining cards in the draw pile.
  */
 export const TrumpWell = ({ trumpCard, trumpSuit, deckCount }: Props): JSX.Element => {
-  const suitColor = isRed(trumpSuit) ? tokens.suit.red : tokens.text.primary;
+  const suitColor =
+    trumpSuit && isRedSuit(trumpSuit) ? tokens.suit.red : tokens.text.primary;
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center gap-1.5">

@@ -10,7 +10,7 @@ interface Props {
   onClick?: () => void;
   disabled?: boolean;
   selected?: boolean;
-  /** Coral dot in the top-right corner — marks trump cards in hand. */
+  /** Coral dot at the top-right — marks trump cards in hand. */
   isTrump?: boolean;
   /** Visually de-emphasise when the card isn't playable right now. */
   playable?: boolean;
@@ -25,12 +25,23 @@ interface Props {
 }
 
 /**
- * Durak playing card — clean typographic face, no skeuomorphism.
+ * Durak playing card — clean typographic face.
  *   - Top-left index: rank + suit glyph in suit colour.
- *   - Bottom-right large suit glyph at 85 % opacity.
- *   - Optional trump dot at the top-right.
+ *   - Bottom-right large suit glyph.
+ *   - Subtle inset border in the suit colour for polish.
+ *   - Optional trump dot at the top-right corner.
  * German rank labels: J→B, Q→D, K→K, A→A.
  */
+
+// Card proportions — all derived from `width` so the design scales linearly.
+const CARD_RADIUS_RATIO = 0.11;
+const CARD_PADDING_RATIO = 0.085;
+const INDEX_RANK_RATIO = 0.36;
+const INDEX_SUIT_RATIO = 0.26;
+const CORNER_GLYPH_RATIO = 0.42;
+const TRUMP_DOT_RATIO = 0.115;
+const INNER_BORDER_INSET_RATIO = 0.06;
+
 const CardImpl = ({
   card,
   faceDown,
@@ -46,6 +57,7 @@ const CardImpl = ({
   style,
 }: Props): JSX.Element => {
   const { w, h } = cardDims(width);
+  const radius = w * CARD_RADIUS_RATIO;
 
   const inner = faceDown ? (
     <CardBackFace width={w} />
@@ -66,10 +78,9 @@ const CardImpl = ({
       style={{
         width: w,
         height: h,
-        borderRadius: w * 0.11,
-        border: selected
-          ? `1.5px solid ${tokens.accent.base}`
-          : defended
+        borderRadius: radius,
+        border:
+          selected || defended
             ? `1.5px solid ${tokens.accent.base}`
             : '0.5px solid rgba(0,0,0,0.08)',
         boxShadow: selected
@@ -129,56 +140,68 @@ interface FaceProps {
 const CardFront = memo(function CardFront({ rank, suit, width, isTrump }: FaceProps) {
   const w = width;
   const suitColor = isRedSuit(suit) ? tokens.suit.red : tokens.suit.black;
-  const indexFontSize = w * 0.34;
-  const glyphFontSize = w * 0.34;
-  const label = RANK_LABEL[rank];
-  return (
-    <div className="absolute inset-0 flex flex-col" style={{ padding: w * 0.08 }}>
-      <div className="flex flex-col" style={{ lineHeight: 1 }}>
-        <span
-          className="font-serif"
-          style={{
-            fontSize: indexFontSize,
-            color: suitColor,
-            fontWeight: 500,
-            letterSpacing: '-0.02em',
-          }}
-        >
-          {label}
-        </span>
-        <span
-          style={{
-            fontSize: indexFontSize * 0.7,
-            color: suitColor,
-            lineHeight: 1,
-            marginTop: w * 0.02,
-          }}
-        >
-          {SUIT_GLYPH[suit]}
-        </span>
-      </div>
+  const padding = w * CARD_PADDING_RATIO;
+  const innerInset = w * INNER_BORDER_INSET_RATIO;
+  const innerRadius = w * (CARD_RADIUS_RATIO - INNER_BORDER_INSET_RATIO);
 
-      <div className="mt-auto flex justify-end" style={{ lineHeight: 1 }}>
-        <span
-          style={{
-            fontSize: glyphFontSize,
-            color: suitColor,
-            opacity: 0.85,
-            lineHeight: 0.9,
-          }}
-        >
-          {SUIT_GLYPH[suit]}
-        </span>
+  return (
+    <div className="absolute inset-0">
+      <span
+        aria-hidden
+        className="pointer-events-none absolute"
+        style={{
+          inset: innerInset,
+          borderRadius: innerRadius,
+          border: `0.5px solid ${suitColor}`,
+          opacity: 0.12,
+        }}
+      />
+
+      <div className="absolute inset-0 flex flex-col" style={{ padding }}>
+        <div className="flex flex-col" style={{ lineHeight: 1, gap: w * 0.015 }}>
+          <span
+            className="font-serif"
+            style={{
+              fontSize: w * INDEX_RANK_RATIO,
+              color: suitColor,
+              fontWeight: 500,
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {RANK_LABEL[rank]}
+          </span>
+          <span
+            style={{
+              fontSize: w * INDEX_SUIT_RATIO,
+              color: suitColor,
+              lineHeight: 1,
+            }}
+          >
+            {SUIT_GLYPH[suit]}
+          </span>
+        </div>
+
+        <div className="mt-auto flex justify-end" style={{ lineHeight: 0.9 }}>
+          <span
+            style={{
+              fontSize: w * CORNER_GLYPH_RATIO,
+              color: suitColor,
+              opacity: 0.92,
+            }}
+          >
+            {SUIT_GLYPH[suit]}
+          </span>
+        </div>
       </div>
 
       {isTrump ? (
         <span
           className="absolute"
           style={{
-            top: w * 0.08,
-            right: w * 0.08,
-            width: w * 0.11,
-            height: w * 0.11,
+            top: padding * 0.85,
+            right: padding * 0.85,
+            width: w * TRUMP_DOT_RATIO,
+            height: w * TRUMP_DOT_RATIO,
             borderRadius: '50%',
             background: tokens.accent.base,
             boxShadow: `0 0 0 2px ${tokens.surface.card}`,
@@ -195,7 +218,7 @@ const CardBackFace = memo(function CardBackFace({ width }: { width: number }) {
     <div
       className="absolute inset-0 overflow-hidden"
       style={{
-        borderRadius: w * 0.11,
+        borderRadius: w * CARD_RADIUS_RATIO,
         background: `linear-gradient(155deg, ${tokens.cardBackTop} 0%, ${tokens.cardBackBottom} 100%)`,
       }}
     >
@@ -210,8 +233,8 @@ const CardBackFace = memo(function CardBackFace({ width }: { width: number }) {
         className="absolute"
         style={{
           inset: w * 0.07,
-          borderRadius: w * 0.075,
-          border: '0.5px solid rgba(255,111,94,0.15)',
+          borderRadius: w * (CARD_RADIUS_RATIO - 0.04),
+          border: '0.5px solid rgba(255,111,94,0.18)',
         }}
       />
     </div>
@@ -233,34 +256,35 @@ export const MiniCard = memo(function MiniCard({
   const w = width;
   const h = Math.round(w * CARD_ASPECT);
   const suitColor = isRedSuit(suit) ? tokens.suit.red : tokens.suit.black;
-  const label = RANK_LABEL[rank];
   return (
     <div
       className={cn('relative bg-surface-card', className)}
       style={{
         width: w,
         height: h,
-        borderRadius: w * 0.16,
+        borderRadius: w * 0.18,
         border: '0.5px solid rgba(0,0,0,0.08)',
         boxShadow: '0 1px 0 rgba(255,255,255,0.55) inset, 0 4px 10px -4px rgba(0,0,0,0.45)',
       }}
     >
       <div
         className="absolute"
-        style={{ top: w * 0.12, left: w * 0.16, lineHeight: 0.9 }}
+        style={{ top: w * 0.12, left: w * 0.16, lineHeight: 0.95 }}
       >
         <div
           className="font-serif"
           style={{
-            fontSize: w * 0.42,
+            fontSize: w * 0.44,
             color: suitColor,
             fontWeight: 500,
             letterSpacing: '-0.02em',
           }}
         >
-          {label}
+          {RANK_LABEL[rank]}
         </div>
-        <div style={{ fontSize: w * 0.3, color: suitColor }}>{SUIT_GLYPH[suit]}</div>
+        <div style={{ fontSize: w * 0.3, color: suitColor, marginTop: w * 0.02 }}>
+          {SUIT_GLYPH[suit]}
+        </div>
       </div>
     </div>
   );

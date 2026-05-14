@@ -244,7 +244,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
         />
       </PlayArea>
 
-      <div className="mt-4 flex items-center justify-between px-4">
+      <div className="mt-3 flex items-center justify-between border-t border-line-subtle px-4 py-3">
         <TrumpWell
           trumpCard={game.trumpCard}
           trumpSuit={game.trumpSuit}
