@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    background-color: theme('colors.bg');
+    color: theme('colors.cream.DEFAULT');
+    font-family: theme('fontFamily.serif');
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    overscroll-behavior: none;
+  }
+
+  /* Cards, seats, and UI chrome should not be selectable — long-press on iOS
+     otherwise pops a copy menu over the game. Inputs and the room name list
+     stay selectable. */
+  .no-select,
+  button,
+  [role='button'] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* iOS Safari zooms into <input> when its font-size is below 16 px.
+     16 px (= 1rem) is the de-facto minimum. */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  /* Avoid native pinch-zoom / double-tap-zoom on the game route while still
+     letting individual buttons handle taps. */
+  .touch-game {
+    touch-action: manipulation;
+  }
+}
+
+@layer utilities {
+  .safe-pt {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-pl {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .safe-pr {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .safe-px {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+}
