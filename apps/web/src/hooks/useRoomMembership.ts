@@ -11,12 +11,16 @@ import { emitAckOrToast } from '@/services/socket';
 export const useRoomMembership = (roomId: string | undefined): void => {
   const playerId = useGameStore((s) => s.playerId);
   const connected = useGameStore((s) => s.connected);
+  const lobbyJoined = useGameStore((s) => s.lobbyJoined);
   const rooms = useGameStore((s) => s.rooms);
   const setCurrentRoom = useGameStore((s) => s.setCurrentRoom);
   const lastJoinedRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!roomId || !playerId || !connected) return;
+    // Wait for a real JOIN_LOBBY ack: the stored playerId from LocalStorage
+    // can be stale after a backend restart, and the rooms list isn't
+    // authoritative until the ack arrives.
+    if (!roomId || !playerId || !connected || !lobbyJoined) return;
     const inRoom = rooms.some(
       (r) => r.id === roomId && r.players.some((p) => p.id === playerId),
     );
@@ -31,5 +35,5 @@ export const useRoomMembership = (roomId: string | undefined): void => {
       if (data) setCurrentRoom(roomId);
       else lastJoinedRef.current = null; // allow retry on next render
     })();
-  }, [roomId, playerId, connected, rooms, setCurrentRoom]);
+  }, [roomId, playerId, connected, lobbyJoined, rooms, setCurrentRoom]);
 };

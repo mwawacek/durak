@@ -38,6 +38,9 @@ export const useLobbyJoin = (): void => {
       }
       useGameStore.getState().setIdentity(ack.data.playerId, playerName);
       useGameStore.getState().upsertRooms(ack.data.rooms);
+      // Flip the gate so /r/:id routes can stop showing "Verbinde…" and the
+      // membership hook is allowed to fire its JOIN_ROOM.
+      useGameStore.getState().setLobbyJoined(true);
     })();
 
     return () => {

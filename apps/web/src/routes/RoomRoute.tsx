@@ -30,6 +30,7 @@ export const RoomRoute = (): JSX.Element => {
   const playerName = useGameStore((s) => s.playerName);
   const playerId = useGameStore((s) => s.playerId);
   const connected = useGameStore((s) => s.connected);
+  const lobbyJoined = useGameStore((s) => s.lobbyJoined);
   const rooms = useGameStore((s) => s.rooms);
   const game = useGameStore((s) => s.game);
 
@@ -40,6 +41,12 @@ export const RoomRoute = (): JSX.Element => {
 
   if (!connected) {
     return <PlaceholderScreen title="Verbinde…" sub="Server wird kontaktiert" />;
+  }
+
+  // Wait for the JOIN_LOBBY ack — otherwise we'd briefly show "Raum nicht
+  // gefunden" between socket connect and the first room list update.
+  if (!lobbyJoined) {
+    return <PlaceholderScreen title="Lade Lobby…" sub="Räume werden synchronisiert" />;
   }
 
   const room = rooms.find((r) => r.id === roomId);

@@ -5,6 +5,9 @@ interface GameStoreState {
   playerId: string | null;
   playerName: string | null;
   connected: boolean;
+  /** True once a JOIN_LOBBY ack has returned for the current socket session.
+   *  Flips back to false on disconnect so the next reconnect waits again. */
+  lobbyJoined: boolean;
   rooms: RoomPublic[];
   currentRoomId: string | null;
   game: GameStatePrivate | null;
@@ -12,6 +15,7 @@ interface GameStoreState {
 
   setConnected: (connected: boolean) => void;
   setIdentity: (playerId: string, playerName: string) => void;
+  setLobbyJoined: (joined: boolean) => void;
   upsertRooms: (rooms: RoomPublic[]) => void;
   removeRoom: (roomId: string) => void;
   setCurrentRoom: (roomId: string | null) => void;
@@ -50,6 +54,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
   playerId: null,
   playerName: null,
   connected: false,
+  lobbyJoined: false,
   rooms: [],
   currentRoomId: null,
   game: null,
@@ -57,6 +62,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
 
   setConnected: (connected) => set({ connected }),
   setIdentity: (playerId, playerName) => set({ playerId, playerName }),
+  setLobbyJoined: (lobbyJoined) => set({ lobbyJoined }),
   upsertRooms: (incoming) =>
     set((state) => {
       const byId = new Map(state.rooms.map((r) => [r.id, r]));
@@ -79,6 +85,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
       playerId: null,
       playerName: null,
       connected: false,
+      lobbyJoined: false,
       rooms: [],
       currentRoomId: null,
       game: null,

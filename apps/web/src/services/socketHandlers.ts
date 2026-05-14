@@ -17,8 +17,11 @@ export const attachSocketHandlers = (): void => {
   });
 
   socket.on('disconnect', (reason) => {
+    // Reset lobbyJoined so the next reconnect waits for a fresh JOIN_LOBBY ack
+    // before any /r/:id route concludes that the room isn't found.
     useGameStore.setState({
       connected: false,
+      lobbyJoined: false,
       lastError: `Verbindung getrennt (${reason})`,
     });
   });
@@ -26,6 +29,7 @@ export const attachSocketHandlers = (): void => {
   socket.on('connect_error', (err) => {
     useGameStore.setState({
       connected: false,
+      lobbyJoined: false,
       lastError: `Verbindungsfehler: ${err.message}`,
     });
   });
