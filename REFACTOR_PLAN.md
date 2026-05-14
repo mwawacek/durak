@@ -364,12 +364,15 @@ Engage the `frontend-design` skill. Iterate on:
 - Connection badge style.
 **DoD:** Project no longer looks "Tailwind generic" — has a defined visual signature consistent across all routes.
 
-### Step 16 — Delete `apps/mobile/`
+### Step 16 — Delete `apps/mobile/` (executed earlier than planned)
 
 `rm -rf apps/mobile`. Verify no remaining imports.
 Remove `apps/mobile`-specific deps from root if any (none expected; deps were already in mobile's own `package.json`).
 Update root `package.json` scripts: remove `dev:mobile`, leave only the web ones.
 Run `npm install` from root to clean lockfile.
+
+**Note — deviation from the planned order:** This step was executed during Phase 3 Step 9 because the React 18 (web) vs React 19 (mobile) `@types/react` collision blocked `npm run typecheck`. The new `overrides` block in the root `package.json` pins both `@types/react` and `@types/react-dom` to the 18.x line, and was added together with the mobile deletion.
+
 **DoD:** `git ls-files apps/` shows only `apps/backend` and `apps/web`. Root `npm run typecheck` is green.
 
 ### Step 17 — README + REFACTOR_DONE.md

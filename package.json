@@ -13,7 +13,6 @@
     "build:backend": "npm run build --workspace @durak/shared && npm run build --workspace @durak/backend",
     "dev:backend": "npm run start:dev --workspace @durak/backend",
     "start:backend": "npm run start:prod --workspace @durak/backend",
-    "dev:mobile": "npm run start --workspace @durak/mobile",
     "dev:web": "npm run build:shared && npm run dev --workspace @durak/web",
     "build:web": "npm run build:shared && npm run build --workspace @durak/web",
     "lint:web": "npm run lint --workspace @durak/web",
@@ -32,5 +31,9 @@
   },
   "devDependencies": {
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
   }
 }
