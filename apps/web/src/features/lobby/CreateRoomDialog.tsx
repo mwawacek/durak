@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from 'react';
+import { motion } from 'framer-motion';
 import { MIN_PLAYERS, MAX_PLAYERS } from '@durak/shared';
 import { BrassButton } from '@/components/BrassButton';
 import { cn } from '@/lib/cn';
@@ -25,16 +26,30 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
   );
 
   return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-mahogany-dark/80 px-4 pb-8 sm:items-center sm:pb-0 safe-pb">
-      <form
+    <div
+      className="fixed inset-0 z-50 flex flex-col bg-ink-950/70 backdrop-blur-md"
+      onClick={onCancel}
+    >
+      <motion.form
+        onClick={(e) => e.stopPropagation()}
         onSubmit={handleSubmit}
-        className="w-full max-w-md rounded-card border border-gold/40 bg-mahogany-dark/95 p-5 shadow-raised"
+        className="glass-strong mt-auto w-full rounded-t-sheet p-6 safe-pb sm:m-auto sm:max-w-md sm:rounded-sheet sm:p-7"
+        initial={{ opacity: 0, y: 100 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: 100 }}
+        transition={{ duration: 0.35, ease: [0.2, 0.7, 0.2, 1] }}
       >
-        <h2 className="font-serif text-xl italic text-cream">Neuen Tisch erstellen</h2>
+        {/* Drag-handle ornament */}
+        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-white/15 sm:hidden" />
+
+        <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
+          Neuer Tisch
+        </p>
+        <h2 className="mt-1 font-display text-2xl text-bone">Wie soll er heißen?</h2>
 
         <label
           htmlFor={inputId}
-          className="mt-4 block font-serif text-[10px] uppercase tracking-[0.2em] text-gold-light"
+          className="mt-6 block font-display text-[10px] font-bold uppercase tracking-[0.3em] text-bone-mute"
         >
           Name
         </label>
@@ -45,23 +60,24 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
           onChange={(e) => setName(e.target.value)}
           maxLength={48}
           autoFocus
-          className="mt-1 w-full rounded-card border border-gold/40 bg-mahogany-dark/70 px-3 py-3 font-serif text-cream placeholder:text-cream-dim focus:border-gold-light focus:outline-none"
+          className="mt-2 w-full rounded-card border border-white/10 bg-ink-900/60 px-4 py-3.5 font-sans text-base text-bone placeholder:text-bone-ghost focus:border-crimson-400 focus:outline-none focus:ring-4 focus:ring-crimson-500/20"
         />
 
-        <p className="mt-4 font-serif text-[10px] uppercase tracking-[0.2em] text-gold-light">
+        <p className="mt-6 font-display text-[10px] font-bold uppercase tracking-[0.3em] text-bone-mute">
           Max. Spieler
         </p>
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 grid grid-cols-5 gap-2">
           {options.map((n) => (
             <button
               key={n}
               type="button"
               onClick={() => setMaxPlayers(n)}
               className={cn(
-                'min-h-11 min-w-11 rounded-pill border px-4 py-2 text-sm font-bold transition-colors',
+                'flex h-12 items-center justify-center rounded-card border font-display text-base font-bold transition-all',
+                'active:scale-[0.97]',
                 maxPlayers === n
-                  ? 'border-gold-highlight bg-gold text-ink'
-                  : 'border-gold/40 bg-mahogany-dark/60 text-gold-light',
+                  ? 'border-crimson-400 bg-crimson-500/20 text-bone shadow-crimson'
+                  : 'border-white/10 bg-white/5 text-bone-mute',
               )}
             >
               {n}
@@ -69,11 +85,11 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
           ))}
         </div>
 
-        <div className="mt-6 flex items-center justify-between gap-3">
+        <div className="mt-7 flex flex-wrap items-center justify-between gap-3">
           <BrassButton variant="secondary" label="Abbrechen" onClick={onCancel} />
-          <BrassButton variant="primary" type="submit" label="Erstellen" />
+          <BrassButton variant="primary" type="submit" label="Erstellen" size="lg" />
         </div>
-      </form>
+      </motion.form>
     </div>
   );
 };

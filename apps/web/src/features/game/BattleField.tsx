@@ -13,9 +13,9 @@ interface Props {
 }
 
 /**
- * Up to 6 attack/defense pairs in a flex-wrap grid. Defended cards sit at
- * an offset over the attack with a 16° rotation. Undefended attacks get a
- * pulsing warm-orange outline (CSS keyframes — no JS timer per cell).
+ * Battle field — recessed glass slot where attacks and defenses sit.
+ * Cards animate in / out smoothly. Undefended attacks get a soft amber
+ * outline (modern, no dashed lines).
  */
 const BattleFieldImpl = ({
   pairs,
@@ -29,8 +29,7 @@ const BattleFieldImpl = ({
   return (
     <div
       className={cn(
-        'flex max-w-full flex-wrap items-center justify-center rounded-2xl border border-gold/15 bg-black/25 p-2.5 backdrop-blur-[1px]',
-        'shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)]',
+        'glass-bare flex max-w-full flex-wrap items-center justify-center rounded-card p-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)]',
         className,
       )}
       style={{ gap }}
@@ -40,10 +39,10 @@ const BattleFieldImpl = ({
           <motion.div
             key={p.attack.id}
             layout
-            initial={{ opacity: 0, y: -12, scale: 0.92 }}
+            initial={{ opacity: 0, y: -14, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 8, scale: 0.9 }}
-            transition={{ duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
+            exit={{ opacity: 0, y: 10, scale: 0.88 }}
+            transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
           >
             <BattlePair
               pair={p}
@@ -71,7 +70,6 @@ interface PairProps {
 
 const BattlePair = ({ pair, size, cardW, highlighted, onClick }: PairProps): JSX.Element => {
   const undefended = !pair.defense;
-  // Cell is wide enough for the attack card + the offset defence card.
   const cellW = cardW + cardW * 0.22;
   const cellH = cardW * 1.45 + cardW * 0.28;
   return (
@@ -86,8 +84,8 @@ const BattlePair = ({ pair, size, cardW, highlighted, onClick }: PairProps): JSX
       {pair.defense ? (
         <motion.div
           initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
-          animate={{ opacity: 1, scale: 1, rotate: 16 }}
-          transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
+          animate={{ opacity: 1, scale: 1, rotate: 14 }}
+          transition={{ duration: 0.34, ease: [0.2, 0.7, 0.2, 1] }}
           style={{
             position: 'absolute',
             top: cardW * 0.28,
@@ -99,14 +97,15 @@ const BattlePair = ({ pair, size, cardW, highlighted, onClick }: PairProps): JSX
       ) : null}
       {undefended ? (
         <div
-          className="pointer-events-none absolute animate-pulse-outline rounded-card border-[1.5px] border-dashed border-warm-alert"
+          className="pointer-events-none absolute animate-pulse-ring rounded-[12%]"
           style={{
             top: cardW * 0.32,
             left: cardW * 0.16,
             width: cardW,
             height: cardW * 1.45,
-            background: 'rgba(255,170,80,0.06)',
-            borderColor: '#ffaa50',
+            background: 'rgba(251,191,36,0.06)',
+            border: '1.5px solid rgba(251,191,36,0.8)',
+            boxShadow: '0 0 16px rgba(251,191,36,0.3)',
           }}
         />
       ) : null}

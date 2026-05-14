@@ -36,8 +36,8 @@ export const App = (): JSX.Element => {
 };
 
 /**
- * Distinctive engraved-foil wordmark for routes that need to remind the
- * player which app they're in (lobby header, login modal, game-over).
+ * Distinctive wordmark — variable Bricolage Grotesque at wide width / extra-bold.
+ * Crimson-to-bone gradient text so it carries the "Midnight Velvet" identity.
  */
 export const WordMark = ({
   size = 'lg',
@@ -45,14 +45,19 @@ export const WordMark = ({
   size?: 'sm' | 'md' | 'lg';
 }): JSX.Element => {
   const sizes = {
-    sm: 'text-2xl',
-    md: 'text-4xl',
-    lg: 'text-5xl',
+    sm: 'text-3xl',
+    md: 'text-5xl',
+    lg: 'text-6xl',
   } as const;
   return (
     <span
-      className={`bg-gold-foil bg-clip-text font-display font-extrabold uppercase tracking-[0.18em] text-transparent ${sizes[size]}`}
-      style={{ WebkitBackgroundClip: 'text' }}
+      className={`bg-clip-text font-display uppercase tracking-[-0.02em] text-transparent ${sizes[size]}`}
+      style={{
+        WebkitBackgroundClip: 'text',
+        fontVariationSettings: '"wdth" 95, "wght" 800',
+        backgroundImage:
+          'linear-gradient(180deg, #fff 0%, #fafaf7 35%, #ff5572 100%)',
+      }}
     >
       Durak
     </span>

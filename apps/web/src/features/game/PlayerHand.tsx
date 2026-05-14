@@ -9,15 +9,12 @@ interface Props {
   selectedCardId?: string | null;
   onSelect?: (card: CardType) => void;
   playableIds?: Set<string>;
-  /** Horizontal padding kept clear of cards on each side. */
   sidePadding?: number;
 }
 
 /**
- * Fanned hand centred on the bottom of the screen. The negative horizontal
- * margin between cards is computed so a 6-card hand fits on a 375 px screen
- * without scrolling; larger hands overflow into a scrollable strip but the
- * visual centre stays aligned with the screen centre.
+ * Fanned hand at the bottom of the screen. The selected card lifts above the
+ * arc and pops to z-index 999. Unplayable cards are dimmed.
  */
 export const PlayerHand = ({
   hand,
@@ -30,24 +27,24 @@ export const PlayerHand = ({
   const { width: screenW } = useWindowSize();
   const cardW = cardDims('lg').w;
   const total = hand.length;
-  const spread = Math.min(40, total * 6);
+  const spread = Math.min(36, total * 5.5);
 
   const available = Math.max(160, (screenW || cardW * 6) - sidePadding * 2);
   const idealMargin =
     total > 1 ? Math.floor((available - total * cardW) / (2 * (total - 1))) : 0;
-  const marginH = Math.max(-Math.floor(cardW / 2) + 12, Math.min(0, idealMargin));
+  const marginH = Math.max(-Math.floor(cardW / 2) + 14, Math.min(0, idealMargin));
 
   return (
-    <div className="flex h-full w-full items-end justify-center overflow-x-auto pb-1.5 pt-5">
+    <div className="flex h-full w-full items-end justify-center overflow-x-auto pb-1.5 pt-6">
       <div className="flex items-end">
         {hand.map((card, i) => {
-          const t = total === 1 ? 0 : (i - (total - 1) / 2) / ((total - 1) / 2);
-          const angle = t * (spread / 2);
-          const yLift = Math.abs(t) * 6;
+          const k = total === 1 ? 0 : (i - (total - 1) / 2) / ((total - 1) / 2);
+          const angle = k * (spread / 2);
+          const yLift = Math.abs(k) * 6;
           const playable = !playableIds || playableIds.has(card.id);
           const isTrump = trumpSuit ? card.suit === trumpSuit : false;
           const isSelected = selectedCardId === card.id;
-          const liftPx = isSelected ? -14 - yLift : yLift;
+          const liftPx = isSelected ? -18 - yLift : yLift;
           return (
             <div
               key={card.id}

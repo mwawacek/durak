@@ -22,7 +22,7 @@ export const ShareButton = ({ url }: Props): JSX.Element => {
         await nav.share({ url, title: 'Durak', text: 'Komm an meinen Durak-Tisch:' });
         return;
       } catch {
-        // User cancelled or share failed — fall through to clipboard.
+        /* user cancelled or failed — fall through to clipboard */
       }
     }
     try {
@@ -30,8 +30,6 @@ export const ShareButton = ({ url }: Props): JSX.Element => {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 2000);
     } catch {
-      // Clipboard blocked — show the URL inline in an alert so the user can
-      // copy it manually.
       window.prompt('Link zum Tisch:', url);
     }
   };
@@ -40,7 +38,7 @@ export const ShareButton = ({ url }: Props): JSX.Element => {
     <BrassButton
       variant="secondary"
       label={copied ? 'Kopiert' : 'Einladen'}
-      icon={copied ? <Check size={16} /> : <LinkIcon size={16} />}
+      icon={copied ? <Check size={16} /> : <LinkIcon size={14} strokeWidth={2.5} />}
       onClick={handleShare}
     />
   );

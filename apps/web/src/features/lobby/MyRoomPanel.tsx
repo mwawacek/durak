@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom';
+import { ChevronRight } from 'lucide-react';
 import { SOCKET_EVENTS, type RoomPublic, MIN_PLAYERS } from '@durak/shared';
 import { useGameStore } from '@/store/gameStore';
 import { emitAckOrToast } from '@/services/socket';
@@ -27,32 +28,34 @@ export const MyRoomPanel = ({ room }: Props): JSX.Element => {
   };
 
   return (
-    <section className="relative overflow-hidden rounded-card border border-gold/45 bg-gradient-to-br from-mahogany/80 to-mahogany-dark/95 p-5 shadow-card">
-      {/* Engraved double border */}
-      <div className="pointer-events-none absolute inset-1.5 rounded-[0.4rem] border border-gold/20" />
+    <section className="glass-strong relative overflow-hidden rounded-card p-5">
+      {/* Crimson accent rail */}
+      <span className="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-crimson-400 via-crimson-500 to-amber-400" />
 
-      <div className="relative flex items-baseline gap-3">
-        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-gold-light">
+      <div className="flex items-baseline gap-3">
+        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">
           Dein Tisch
         </h2>
-        <p className="flex-1 truncate font-serif text-xl italic text-cream">{room.name}</p>
-        <span className="rounded-pill border border-gold/40 bg-mahogany-dark/70 px-2.5 py-0.5 font-display text-[10px] font-bold tracking-widest text-gold-light">
+        <p className="flex-1 truncate font-display text-lg leading-tight text-bone">{room.name}</p>
+        <span className="rounded-pill bg-white/5 px-2.5 py-0.5 font-mono text-[11px] text-bone-mute tnum">
           {room.players.length}/{room.maxPlayers}
         </span>
       </div>
 
-      <ul className="relative mt-4 flex flex-col gap-2">
+      <ul className="mt-4 flex flex-col gap-2">
         {room.players.map((p) => (
-          <li key={p.id} className="flex items-center gap-2.5 text-sm">
+          <li key={p.id} className="flex items-center gap-2.5">
             <span
               className={cn(
-                'h-2 w-2 rounded-full ring-2 ring-offset-2 ring-offset-mahogany-dark',
-                p.isConnected ? 'bg-defending ring-defending/30' : 'bg-cream-dim ring-cream-dim/20',
+                'h-2 w-2 rounded-full',
+                p.isConnected
+                  ? 'bg-mint-400 shadow-[0_0_8px_rgba(94,234,212,0.5)]'
+                  : 'bg-bone-ghost',
               )}
             />
-            <span className="flex-1 truncate font-serif italic text-base text-cream">{p.name}</span>
+            <span className="flex-1 truncate font-sans text-base text-bone">{p.name}</span>
             {p.id === room.ownerId ? (
-              <span className="font-display text-[9px] font-bold uppercase tracking-[0.3em] text-gold-light">
+              <span className="rounded-pill bg-amber-400/15 px-2 py-0.5 font-display text-[9px] font-bold uppercase tracking-[0.2em] text-amber-300">
                 Host
               </span>
             ) : null}
@@ -60,14 +63,20 @@ export const MyRoomPanel = ({ room }: Props): JSX.Element => {
         ))}
       </ul>
 
-      <div className="relative mt-5 flex flex-wrap gap-2">
-        <BrassButton variant="primary" label="Zum Tisch" onClick={handleEnter} />
+      {!canStart && room.players.length < MIN_PLAYERS ? (
+        <p className="mt-4 font-sans text-sm text-bone-mute">
+          Mindestens {MIN_PLAYERS} Spieler nötig — teile den Link.
+        </p>
+      ) : null}
+
+      <div className="mt-5 flex flex-wrap gap-2">
+        <BrassButton
+          variant="primary"
+          label="Zum Tisch"
+          icon={<ChevronRight size={14} strokeWidth={2.5} />}
+          onClick={handleEnter}
+        />
         <BrassButton variant="secondary" label="Verlassen" onClick={handleLeave} />
-        {!canStart && room.players.length < MIN_PLAYERS ? (
-          <p className="basis-full font-serif text-sm italic text-cream-dim">
-            Mindestens {MIN_PLAYERS} Spieler nötig — teile den Link mit Freunden.
-          </p>
-        ) : null}
       </div>
     </section>
   );

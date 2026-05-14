@@ -9,15 +9,10 @@ interface Props {
   faceDown?: boolean;
   onClick?: () => void;
   disabled?: boolean;
-  /** Loud highlight — the player has selected this card. */
   selected?: boolean;
-  /** Subtle "this is a trump card" glow (less assertive than `selected`). */
   trumpHighlight?: boolean;
-  /** false = not legally playable right now (visually de-emphasized). Defaults true. */
   playable?: boolean;
-  /** Attack card already beaten — green outline. */
   defended?: boolean;
-  /** Rotate the whole card by N degrees. */
   rotate?: number;
   size?: CardSize;
   className?: string;
@@ -25,16 +20,15 @@ interface Props {
 }
 
 /**
- * A playing card rendered as inline SVG. Sizing is set by the wrapper div
- * (`width: w; height: h`); the SVG fills 100% × 100% via a 100×145 viewBox so
- * proportions are constant across `sm`, `md`, and `lg`.
+ * Playing card rendered as inline SVG — "Midnight Velvet" version.
  *
- * Composition:
- *   - Outline / shadow / borders → wrapper div (Tailwind shadows + ring).
- *   - Face content → inline <svg>: gradient bg, hairline inner border, two
- *     corner rank/suit labels (top-left, bottom-right rotated 180°), and
- *     either pip layout (`6..10`) or face medallion (`J/Q/K/A`).
- *   - Back → solid burgundy gradient + gold rosette pattern.
+ * Face: warm bone-cream with a very subtle inner sheen, sharp suit colours
+ * (vibrant red / deep ink), thin inner border, larger corner labels in
+ * Bricolage Grotesque, geometric pip layouts for 6..10 and a clean letter
+ * + suit medallion for J/Q/K/A — no overdesigned portrait.
+ *
+ * Back: midnight gradient with a precise diagonal-stripe pattern and a
+ * subtle inner border. Sharp and modern.
  */
 const CardImpl = ({
   card,
@@ -55,10 +49,11 @@ const CardImpl = ({
   const wrapper = (
     <div
       className={cn(
-        'relative overflow-hidden rounded-card shadow-card transition-transform',
-        selected && 'shadow-raised ring-[1.5px] ring-gold-light',
-        defended && !selected && 'ring-[1.5px] ring-defending',
-        !selected && !defended && trumpHighlight && 'ring-1 ring-gold/40',
+        'relative overflow-hidden rounded-[12%] transition-transform',
+        selected && 'ring-2 ring-amber-400 shadow-amber',
+        defended && !selected && 'ring-2 ring-mint-400',
+        !selected && !defended && trumpHighlight && 'ring-1 ring-crimson-400/60',
+        !selected && !defended && !trumpHighlight && 'shadow-card',
         !playable && !selected && 'opacity-45',
         disabled && 'cursor-not-allowed',
         'no-select touch-game',
@@ -85,7 +80,7 @@ const CardImpl = ({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="block bg-transparent p-0 active:scale-[0.97]"
+      className="block bg-transparent p-0 active:scale-[0.96]"
       aria-label={card ? `${card.rank} ${card.suit}` : faceDown ? 'verdeckte Karte' : 'leere Karte'}
     >
       {wrapper}
@@ -95,15 +90,7 @@ const CardImpl = ({
 
 export const Card = memo(CardImpl);
 
-const FACE_MONOGRAM: Record<string, string> = { J: 'B', Q: 'D', K: 'K', A: 'A' };
-
-const FACE_BG: Record<string, string> = {
-  J: tokens.faceJ,
-  Q: tokens.faceQ,
-  K: tokens.faceK,
-  A: tokens.faceA,
-};
-
+const FACE_MONOGRAM: Record<string, string> = { J: 'J', Q: 'Q', K: 'K', A: 'A' };
 const FACE_RANKS = new Set<Rank>(['J', 'Q', 'K', 'A']);
 
 interface FaceProps {
@@ -113,7 +100,7 @@ interface FaceProps {
 
 const CardFaceImpl = ({ rank, suit }: FaceProps): JSX.Element => {
   const id = useId();
-  const suitColor = isRedSuit(suit) ? tokens.cardSuitRed : tokens.cardSuitBlack;
+  const suitColor = isRedSuit(suit) ? tokens.cardSuitRed : tokens.cardSuitInk;
   const isFace = FACE_RANKS.has(rank);
 
   return (
@@ -131,21 +118,21 @@ const CardFaceImpl = ({ rank, suit }: FaceProps): JSX.Element => {
           <stop offset="1" stopColor={tokens.cardFaceShadow} />
         </linearGradient>
       </defs>
-      <rect x="0" y="0" width="100" height="145" rx="8.5" fill={`url(#face-${id})`} />
+      <rect x="0" y="0" width="100" height="145" rx="12" fill={`url(#face-${id})`} />
       <rect
-        x="4"
-        y="4"
-        width="92"
-        height="137"
-        rx="6"
+        x="3.5"
+        y="3.5"
+        width="93"
+        height="138"
+        rx="9"
         fill="none"
         stroke={suitColor}
-        strokeOpacity="0.25"
+        strokeOpacity="0.12"
       />
 
-      <CornerLabel x={9} y={5} rank={rank} suit={suit} color={suitColor} />
-      <g transform="translate(91 140) rotate(180)">
-        <CornerLabel x={0} y={0} rank={rank} suit={suit} color={suitColor} inverted />
+      <CornerLabel x={8} y={6} rank={rank} suit={suit} color={suitColor} />
+      <g transform="translate(92 139) rotate(180)">
+        <CornerLabel x={0} y={0} rank={rank} suit={suit} color={suitColor} />
       </g>
 
       {isFace ? <FaceMedallion rank={rank} suit={suit} /> : <Pips rank={rank} suit={suit} />}
@@ -160,30 +147,26 @@ interface CornerLabelProps {
   rank: Rank;
   suit: Suit;
   color: string;
-  inverted?: boolean;
 }
 
-const CornerLabel = ({ x, y, rank, suit, color, inverted }: CornerLabelProps): JSX.Element => {
-  return (
-    <g transform={`translate(${x} ${y})`}>
-      <text
-        x="0"
-        y="18"
-        fontFamily="Georgia, serif"
-        fontWeight="800"
-        fontSize="22"
-        fill={color}
-        textAnchor={inverted ? 'start' : 'start'}
-        style={{ letterSpacing: '-0.5px' }}
-      >
-        {rank}
-      </text>
-      <text x="0" y="34" fontSize="18" fill={color}>
-        {SUIT_GLYPH[suit]}
-      </text>
-    </g>
-  );
-};
+const CornerLabel = ({ x, y, rank, suit, color }: CornerLabelProps): JSX.Element => (
+  <g transform={`translate(${x} ${y})`}>
+    <text
+      x="0"
+      y="18"
+      fontFamily="'Bricolage Grotesque', system-ui, sans-serif"
+      fontWeight="800"
+      fontSize="20"
+      fill={color}
+      style={{ fontVariationSettings: '"wdth" 90' }}
+    >
+      {rank}
+    </text>
+    <text x="0" y="36" fontSize="14" fontWeight="700" fill={color}>
+      {SUIT_GLYPH[suit]}
+    </text>
+  </g>
+);
 
 const PIP_LAYOUTS: Record<string, [number, number][]> = {
   '6': [
@@ -241,12 +224,11 @@ const PIP_LAYOUTS: Record<string, [number, number][]> = {
 const Pips = ({ rank, suit }: FaceProps): JSX.Element | null => {
   const layout = PIP_LAYOUTS[rank];
   if (!layout) return null;
-  const suitColor = isRedSuit(suit) ? tokens.cardSuitRed : tokens.cardSuitBlack;
-  const insetX = 0.22;
-  const insetY = 0.18;
+  const suitColor = isRedSuit(suit) ? tokens.cardSuitRed : tokens.cardSuitInk;
+  const insetX = 0.24;
+  const insetY = 0.2;
   const usableW = 1 - insetX * 2;
   const usableH = 1 - insetY * 2;
-  const fontSize = 20;
   return (
     <>
       {layout.map(([c, r], i) => {
@@ -258,7 +240,8 @@ const Pips = ({ rank, suit }: FaceProps): JSX.Element | null => {
             key={i}
             x={cx}
             y={cy}
-            fontSize={fontSize}
+            fontSize="18"
+            fontWeight="700"
             fill={suitColor}
             textAnchor="middle"
             dominantBaseline="central"
@@ -273,65 +256,35 @@ const Pips = ({ rank, suit }: FaceProps): JSX.Element | null => {
 };
 
 const FaceMedallion = ({ rank, suit }: FaceProps): JSX.Element => {
-  const suitColor = isRedSuit(suit) ? tokens.cardSuitRed : tokens.cardSuitBlack;
+  const suitColor = isRedSuit(suit) ? tokens.cardSuitRed : tokens.cardSuitInk;
   const monogram = FACE_MONOGRAM[rank] ?? rank;
-  const bg = FACE_BG[rank] ?? tokens.faceK;
-  const pipColor = isRedSuit(suit) ? tokens.redPip : tokens.goldLight;
   return (
     <g>
-      <rect
-        x="16"
-        y="32"
-        width="68"
-        height="81"
-        rx="14"
-        fill={bg}
-        stroke={suitColor}
-        strokeOpacity="0.6"
-      />
-      <rect
-        x="20"
-        y="36"
-        width="60"
-        height="73"
-        rx="11"
-        fill="none"
-        stroke={tokens.goldFaint}
-      />
+      {/* Suit glyph above */}
       <text
         x="50"
-        y="58"
-        fontSize="18"
-        fill={pipColor}
+        y="56"
+        fontSize="20"
+        fontWeight="700"
+        fill={suitColor}
         textAnchor="middle"
         dominantBaseline="central"
       >
         {SUIT_GLYPH[suit]}
       </text>
+      {/* Big rank letter — Bricolage Grotesque expanded */}
       <text
         x="50"
-        y="84"
-        fontFamily="Georgia, serif"
-        fontStyle="italic"
+        y="92"
+        fontFamily="'Bricolage Grotesque', system-ui, sans-serif"
         fontWeight="800"
-        fontSize="40"
-        fill={tokens.cream}
+        fontSize="56"
+        fill={suitColor}
         textAnchor="middle"
         dominantBaseline="central"
+        style={{ fontVariationSettings: '"wdth" 95' }}
       >
         {monogram}
-      </text>
-      <text
-        x="50"
-        y="106"
-        fontFamily="Georgia, serif"
-        fontWeight="700"
-        fontSize="11"
-        fill={tokens.goldLight}
-        textAnchor="middle"
-        letterSpacing="1"
-      >
-        {rank}
       </text>
     </g>
   );
@@ -350,72 +303,56 @@ const CardBackImpl = (): JSX.Element => {
     >
       <defs>
         <linearGradient id={`back-${id}`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor={tokens.burgundy} />
-          <stop offset="1" stopColor={tokens.burgundyDark} />
+          <stop offset="0" stopColor={tokens.ink[700]} />
+          <stop offset="1" stopColor={tokens.ink[950]} />
         </linearGradient>
+        <pattern
+          id={`stripe-${id}`}
+          patternUnits="userSpaceOnUse"
+          width="10"
+          height="10"
+          patternTransform="rotate(45)"
+        >
+          <line
+            x1="0"
+            y="0"
+            x2="0"
+            y2="10"
+            stroke={tokens.crimson[500]}
+            strokeWidth="1.5"
+            strokeOpacity="0.18"
+          />
+        </pattern>
       </defs>
-      <rect x="0" y="0" width="100" height="145" rx="8.5" fill={`url(#back-${id})`} />
+      <rect x="0" y="0" width="100" height="145" rx="12" fill={`url(#back-${id})`} />
+      <rect x="0" y="0" width="100" height="145" rx="12" fill={`url(#stripe-${id})`} />
       <rect
         x="5"
         y="5"
         width="90"
         height="135"
-        rx="6"
+        rx="9"
         fill="none"
-        stroke={tokens.gold}
+        stroke={tokens.crimson[500]}
         strokeWidth="1"
+        strokeOpacity="0.55"
       />
-      <rect
-        x="8"
-        y="8"
-        width="84"
-        height="129"
-        rx="4"
-        fill="none"
-        stroke={tokens.goldRailFaint}
-        strokeWidth="0.6"
-      />
-      {/* Central diamond rosette */}
+      {/* Centre suit diamond */}
       <g transform="translate(50 72.5)">
-        <rect
-          x="-22"
-          y="-22"
-          width="44"
-          height="44"
-          fill={tokens.goldHaloBg}
-          stroke={tokens.gold}
-          strokeWidth="0.8"
-          transform="rotate(45)"
-        />
         <rect
           x="-14"
           y="-14"
           width="28"
           height="28"
-          fill="none"
-          stroke={tokens.goldHighlight}
-          strokeWidth="0.5"
+          rx="3"
+          fill={tokens.crimson[500]}
+          fillOpacity="0.25"
+          stroke={tokens.crimson[400]}
+          strokeWidth="0.8"
           transform="rotate(45)"
         />
-        <circle r="6" fill={tokens.goldLight} />
+        <circle r="4" fill={tokens.amber[400]} />
       </g>
-      {/* Corner dots */}
-      {[
-        { cx: 18, cy: 20 },
-        { cx: 82, cy: 20 },
-        { cx: 18, cy: 125 },
-        { cx: 82, cy: 125 },
-      ].map(({ cx, cy }, i) => (
-        <circle
-          key={i}
-          cx={cx}
-          cy={cy}
-          r="5.5"
-          fill="none"
-          stroke={tokens.gold}
-          strokeWidth="0.6"
-        />
-      ))}
     </svg>
   );
 };

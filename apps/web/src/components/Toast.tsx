@@ -1,19 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { AlertCircle } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 
 /**
- * Global, store-driven toast. Reads `lastError`, shows it for `durationMs`,
- * then clears it. New errors interrupt the current one. Anchored below the
- * top safe area so it never sits under the iOS notch.
+ * Global, store-driven toast banner. Reads `lastError`, shows it for
+ * `durationMs`, then clears. New errors interrupt the current one.
+ *
+ * "Midnight Velvet" look: glass card with a crimson left edge and a
+ * small alert icon. Anchored below the top safe area.
  */
 export const Toast = ({ durationMs = 3000 }: { durationMs?: number }): JSX.Element => {
   const message = useGameStore((s) => s.lastError);
   const setError = useGameStore((s) => s.setError);
   const [visible, setVisible] = useState<string | null>(message);
-
-  // Track the most recent message generation so a stale dismiss doesn't wipe
-  // a fresh one that arrived during the previous fade-out.
   const genRef = useRef(0);
 
   useEffect(() => {
@@ -42,9 +42,13 @@ export const Toast = ({ durationMs = 3000 }: { durationMs?: number }): JSX.Eleme
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -8 }}
             transition={{ duration: 0.18 }}
-            className="mt-2 max-w-md rounded-md border border-gold/40 border-l-4 border-l-red bg-mahogany-dark/90 px-4 py-3 text-sm text-cream shadow-card"
+            className="glass-strong mt-2 inline-flex max-w-md items-start gap-2.5 rounded-card px-4 py-3 text-sm text-bone shadow-raised"
+            style={{
+              borderLeft: '3px solid #ff3b5f',
+            }}
           >
-            {visible}
+            <AlertCircle size={16} className="mt-0.5 shrink-0 text-crimson-400" />
+            <span className="font-sans leading-snug">{visible}</span>
           </motion.div>
         ) : null}
       </AnimatePresence>

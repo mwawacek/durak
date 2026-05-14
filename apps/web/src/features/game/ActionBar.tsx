@@ -34,10 +34,10 @@ const roleLabel = (isAttacker: boolean, isDefender: boolean, needsConfirm: boole
 };
 
 const roleColor = (isAttacker: boolean, isDefender: boolean, needsConfirm: boolean): string => {
-  if (needsConfirm) return 'text-gold-light';
-  if (isDefender) return 'text-defending';
-  if (isAttacker) return 'text-red-count';
-  return 'text-cream-dim';
+  if (needsConfirm) return 'text-amber-300';
+  if (isDefender) return 'text-mint-300';
+  if (isAttacker) return 'text-crimson-400';
+  return 'text-bone-ghost';
 };
 
 export const ActionBar = ({
@@ -59,6 +59,7 @@ export const ActionBar = ({
   onToggleRedirect,
 }: Props): JSX.Element => {
   const active = isAttacker || isDefender || needsConfirm;
+  const tone = isAttacker ? 'attacker' : isDefender ? 'defender' : 'neutral';
   return (
     <>
       <div
@@ -66,13 +67,8 @@ export const ActionBar = ({
         style={{ height: bannerHeight }}
       >
         <div>
-          <p
-            className="truncate font-serif text-2xl italic leading-tight text-cream"
-            style={{ textShadow: '0 1px 2px rgba(0,0,0,0.6)' }}
-          >
-            {banner.line}
-          </p>
-          <p className="mt-1 truncate font-display text-[9px] font-bold uppercase tracking-[0.35em] text-cream-dim">
+          <p className="truncate font-display text-2xl leading-tight text-bone">{banner.line}</p>
+          <p className="mt-1 truncate font-display text-[9px] font-bold uppercase tracking-[0.4em] text-bone-mute">
             {banner.sub}
           </p>
         </div>
@@ -84,13 +80,18 @@ export const ActionBar = ({
       >
         <div
           className={cn(
-            'flex shrink-0 items-center gap-2 rounded-pill border bg-mahogany-dark/80 py-1 pl-1 pr-3 backdrop-blur-sm transition-shadow',
-            active ? 'border-gold-light shadow-[0_0_12px_rgba(212,165,72,0.25)]' : 'border-gold/40',
+            'glass-bare flex shrink-0 items-center gap-2 rounded-pill py-1 pl-1 pr-3 transition-all',
+            active && 'ring-1 ring-bone/20',
           )}
         >
-          <RingedAvatar initials={(playerName?.[0] ?? 'D').toUpperCase()} active={active} size={28} />
+          <RingedAvatar
+            initials={(playerName?.[0] ?? 'D').toUpperCase()}
+            active={active}
+            size={30}
+            tone={tone}
+          />
           <div className="min-w-0">
-            <p className="max-w-[80px] truncate font-serif italic text-sm leading-tight text-cream-soft">
+            <p className="max-w-[88px] truncate font-sans text-sm font-semibold leading-tight text-bone">
               {playerName ?? 'Du'}
             </p>
             <p
@@ -120,7 +121,7 @@ export const ActionBar = ({
           {canRedirect ? (
             <BrassButton
               variant={redirectMode ? 'secondary-active' : 'secondary'}
-              label={redirectMode ? 'Abbrechen' : 'Weiterschieben'}
+              label={redirectMode ? 'Abbrechen' : 'Schieben'}
               onClick={onToggleRedirect}
               disabled={busy}
             />

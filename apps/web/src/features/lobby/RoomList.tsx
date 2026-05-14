@@ -1,3 +1,4 @@
+import { motion } from 'framer-motion';
 import type { RoomPublic } from '@durak/shared';
 import { RoomRow } from './RoomRow';
 
@@ -11,21 +12,26 @@ interface Props {
 export const RoomList = ({ rooms, onJoin, joinPending }: Props): JSX.Element => {
   if (rooms.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-2 rounded-card border border-dashed border-gold/25 bg-mahogany-dark/30 px-4 py-8 text-center">
-        <span className="font-display text-2xl text-gold-light/70 tracking-[0.4em]">♠ · ♥</span>
-        <p className="font-serif text-base italic text-cream">Noch keine Tische offen.</p>
-        <p className="max-w-[28ch] text-[12px] leading-relaxed text-cream-dim">
-          Eröffne einen neuen Tisch oder warte, bis jemand anders eintritt.
+      <div className="glass-bare flex flex-col items-center gap-3 rounded-card px-5 py-10 text-center">
+        <span className="font-display text-3xl text-bone-ghost tracking-[0.3em]">·   ·   ·</span>
+        <p className="font-display text-lg text-bone">Keine offenen Tische</p>
+        <p className="max-w-[32ch] font-sans text-sm text-bone-mute">
+          Eröffne einen neuen oder warte, bis jemand einen Tisch aufmacht.
         </p>
       </div>
     );
   }
   return (
-    <ul className="flex flex-col gap-2">
-      {rooms.map((room) => (
-        <li key={room.id}>
+    <ul className="flex flex-col gap-2.5">
+      {rooms.map((room, i) => (
+        <motion.li
+          key={room.id}
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: i * 0.05, duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
+        >
           <RoomRow room={room} onJoin={() => onJoin(room)} disabled={joinPending} />
-        </li>
+        </motion.li>
       ))}
     </ul>
   );

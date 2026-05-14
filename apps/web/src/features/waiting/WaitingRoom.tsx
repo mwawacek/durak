@@ -11,11 +11,6 @@ interface Props {
   room: RoomPublic;
 }
 
-/**
- * Pre-game waiting room shown while the room is in lobby status. The host
- * gets a "Spiel starten" button (active once min-players is reached). Others
- * see "Warte auf Host". The share button copies the /r/<id> URL for invites.
- */
 export const WaitingRoom = ({ room }: Props): JSX.Element => {
   const playerId = useGameStore((s) => s.playerId);
   const setCurrentRoom = useGameStore((s) => s.setCurrentRoom);
@@ -24,9 +19,7 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
   const canStart = isHost && room.players.length >= MIN_PLAYERS;
 
   const handleStart = async () => {
-    const ok = await emitAckOrToast(SOCKET_EVENTS.START_GAME, { roomId: room.id });
-    if (ok === null) return;
-    // The server flips status to in-game; RoomRoute will pick up the change.
+    await emitAckOrToast(SOCKET_EVENTS.START_GAME, { roomId: room.id });
   };
 
   const handleLeave = async () => {
@@ -43,53 +36,58 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
       : `/r/${room.id}`;
 
   return (
-    <main className="flex min-h-dvh flex-col text-cream safe-pt safe-pb">
-      <header className="flex items-end justify-between gap-3 px-5 pt-8">
-        <div>
-          <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-gold-light">
-            Wartebereich
-          </p>
-          <h1 className="mt-1 truncate font-serif text-3xl italic leading-tight text-cream">
-            {room.name}
-          </h1>
+    <main className="flex min-h-dvh flex-col text-bone safe-pt safe-pb">
+      <header className="px-5 pt-10">
+        <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
+          Wartebereich
+        </p>
+        <h1 className="mt-2 truncate font-display text-3xl leading-tight text-bone">
+          {room.name}
+        </h1>
+        <div className="mt-3 inline-flex items-center gap-2 rounded-pill bg-white/5 px-3 py-1.5">
+          <span
+            className={cn(
+              'h-1.5 w-1.5 rounded-full',
+              room.players.length >= MIN_PLAYERS
+                ? 'bg-mint-400 shadow-[0_0_8px_rgba(94,234,212,0.6)]'
+                : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]',
+            )}
+          />
+          <span className="font-mono text-[11px] text-bone-mute tnum">
+            {room.players.length}/{room.maxPlayers}
+          </span>
         </div>
-        <span className="mb-1 rounded-pill border border-gold/40 bg-mahogany-dark/70 px-3 py-1 font-display text-[10px] font-bold uppercase tracking-[0.3em] text-gold-light">
-          {room.players.length}/{room.maxPlayers}
-        </span>
       </header>
 
-      <div className="mx-5 mt-5 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-
-      <section className="mt-6 flex flex-col gap-4 px-5">
-        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-gold-light">
+      <section className="mt-7 flex flex-col gap-3 px-5">
+        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
           Am Tisch
         </h2>
         <ul className="flex flex-col gap-2.5">
           {room.players.map((p, i) => (
             <motion.li
               key={p.id}
-              className="relative flex items-center gap-3 overflow-hidden rounded-card border border-gold/30 bg-gradient-to-br from-mahogany/70 to-mahogany-dark/80 px-4 py-3.5"
-              initial={{ opacity: 0, x: -8 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
+              className="glass flex items-center gap-3 rounded-card px-4 py-3.5"
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: i * 0.06, duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
             >
-              <span className="pointer-events-none absolute inset-y-0 left-0 w-[2px] bg-gradient-to-b from-gold/0 via-gold/70 to-gold/0" />
               <span
                 className={cn(
-                  'h-2.5 w-2.5 rounded-full ring-2 ring-offset-2 ring-offset-mahogany-dark',
+                  'h-2 w-2 rounded-full',
                   p.isConnected
-                    ? 'bg-defending ring-defending/30'
-                    : 'bg-cream-dim ring-cream-dim/20',
+                    ? 'bg-mint-400 shadow-[0_0_8px_rgba(94,234,212,0.5)]'
+                    : 'bg-bone-ghost',
                 )}
               />
-              <span className="flex-1 truncate font-serif italic text-lg text-cream">{p.name}</span>
+              <span className="flex-1 truncate font-sans text-base text-bone">{p.name}</span>
               {p.id === room.ownerId ? (
-                <span className="font-display text-[9px] font-bold uppercase tracking-[0.3em] text-gold-light">
+                <span className="rounded-pill bg-amber-400/15 px-2 py-0.5 font-display text-[9px] font-bold uppercase tracking-[0.2em] text-amber-300">
                   Host
                 </span>
               ) : null}
               {p.id === playerId ? (
-                <span className="font-display text-[9px] font-bold uppercase tracking-[0.3em] text-cream-dim">
+                <span className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-bone-mute">
                   Du
                 </span>
               ) : null}
@@ -98,26 +96,32 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
         </ul>
 
         {room.players.length < MIN_PLAYERS ? (
-          <p className="mt-2 font-serif italic text-cream-dim">
+          <p className="mt-2 font-sans text-sm text-bone-mute">
             Mindestens {MIN_PLAYERS} Spieler nötig. Lade Freunde ein.
           </p>
         ) : !isHost ? (
-          <p className="mt-2 font-serif italic text-cream-dim">Warte, bis der Host startet …</p>
+          <p className="mt-2 font-sans text-sm italic text-bone-mute">
+            Warte, bis der Host startet …
+          </p>
         ) : null}
+      </section>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <ShareButton url={shareUrl} />
+      {/* Bottom action zone — sticky on mobile */}
+      <div className="mt-auto flex flex-wrap items-center justify-between gap-2 px-5 pt-8 pb-2">
+        <ShareButton url={shareUrl} />
+        <div className="flex gap-2">
+          <BrassButton variant="secondary" label="Verlassen" onClick={handleLeave} />
           {isHost ? (
             <BrassButton
               variant="primary"
-              label="Spiel starten"
+              size="lg"
+              label="Starten"
               onClick={handleStart}
               disabled={!canStart}
             />
           ) : null}
-          <BrassButton variant="secondary" label="Verlassen" onClick={handleLeave} />
         </div>
-      </section>
+      </div>
     </main>
   );
 };

@@ -1,7 +1,6 @@
 import type { Card as CardType, Suit } from '@durak/shared';
 import { SUIT_GLYPH } from '@durak/shared';
 import { Card } from '@/components/Card';
-import { cn } from '@/lib/cn';
 import { tokens } from '@/theme/tokens';
 
 interface Props {
@@ -13,8 +12,8 @@ interface Props {
 
 /**
  * Vertical deck stack with the trump card poking out underneath, rotated 90°.
- * Once the deck is empty and the trump has been drawn, a "ghost medallion"
- * keeps the trump suit visible at a glance.
+ * Once the deck is empty and the trump has been drawn, a small medallion
+ * shows the trump suit instead.
  */
 export const TrumpReservoir = ({
   trumpCard,
@@ -29,14 +28,14 @@ export const TrumpReservoir = ({
 
   return (
     <div className="flex flex-col items-center gap-1.5">
-      <p className="font-serif text-[8px] font-bold uppercase tracking-widest text-gold-light">
+      <p className="font-display text-[9px] font-bold uppercase tracking-[0.3em] text-bone-mute">
         Trumpf
       </p>
       <div className="relative" style={{ width: stackWidth, height: stackHeight }}>
-        {/* Soft gold halo */}
+        {/* Soft amber halo */}
         <div
-          className="pointer-events-none absolute -inset-1.5 rounded-card"
-          style={{ background: tokens.goldHaloBg }}
+          className="pointer-events-none absolute -inset-2 rounded-card"
+          style={{ background: 'rgba(251,191,36,0.10)', filter: 'blur(6px)' }}
         />
 
         {trumpCard ? (
@@ -49,7 +48,12 @@ export const TrumpReservoir = ({
               transformOrigin: 'center',
             }}
           >
-            <Card card={trumpCard} size="md" selected style={{ width: cardW, height: cardHeight }} />
+            <Card
+              card={trumpCard}
+              size="md"
+              selected
+              style={{ width: cardW, height: cardHeight }}
+            />
           </div>
         ) : null}
 
@@ -67,7 +71,7 @@ export const TrumpReservoir = ({
 
         {!trumpCard && deckCount === 0 && trumpSuit ? (
           <div
-            className="absolute flex items-center justify-center rounded-full border border-gold/40 bg-mahogany-dark/60"
+            className="absolute flex items-center justify-center rounded-full border border-amber-300/60 bg-ink-950/60"
             style={{
               left: stackWidth / 2 - 24,
               top: stackHeight / 2 - 24,
@@ -76,8 +80,8 @@ export const TrumpReservoir = ({
             }}
           >
             <span
-              className={cn('text-2xl', isRed ? 'text-card-suit-red' : 'text-gold-light')}
-              style={{ color: isRed ? tokens.cardSuitRed : tokens.goldLight }}
+              className="text-2xl font-semibold"
+              style={{ color: isRed ? tokens.crimson[500] : tokens.amber[400] }}
             >
               {SUIT_GLYPH[trumpSuit]}
             </span>
@@ -86,9 +90,16 @@ export const TrumpReservoir = ({
       </div>
 
       {deckCount > 0 ? (
-        <div className="flex items-center gap-1 rounded-pill border border-gold/40 bg-mahogany-dark/70 px-2 py-0.5">
-          {trumpSuit ? <span className="text-[10px] text-gold-light">{SUIT_GLYPH[trumpSuit]}</span> : null}
-          <span className="text-[10px] font-bold text-gold-light">{deckCount}</span>
+        <div className="glass-bare flex items-center gap-1.5 rounded-pill px-2.5 py-1">
+          {trumpSuit ? (
+            <span
+              className="text-[11px]"
+              style={{ color: isRed ? tokens.crimson[500] : tokens.amber[400] }}
+            >
+              {SUIT_GLYPH[trumpSuit]}
+            </span>
+          ) : null}
+          <span className="font-mono text-[10px] font-bold text-bone tnum">{deckCount}</span>
         </div>
       ) : null}
     </div>

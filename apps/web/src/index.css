@@ -16,54 +16,37 @@
 
   body {
     margin: 0;
-    background-color: theme('colors.bg');
-    color: theme('colors.cream.DEFAULT');
-    font-family: theme('fontFamily.serif');
-    font-feature-settings: 'lnum' 1, 'kern' 1;
+    color: theme('colors.bone.DEFAULT');
+    font-family: theme('fontFamily.sans');
+    font-feature-settings: 'cv11' 1, 'ss01' 1, 'kern' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
     overscroll-behavior: none;
+
+    /* Layered backdrop: midnight base with three subtle aurora blobs that
+       drift slowly. Cool — feels like a late-night card room, not a casino. */
+    background-color: #06080f;
     background-image:
-      radial-gradient(70% 50% at 50% 0%, rgba(106, 58, 34, 0.22) 0%, transparent 80%),
-      radial-gradient(60% 60% at 100% 100%, rgba(15, 35, 23, 0.18) 0%, transparent 80%),
-      repeating-linear-gradient(91deg, rgba(255, 255, 255, 0.014) 0 1px, transparent 1px 9px);
+      radial-gradient(60% 45% at 18% 0%, rgba(255, 59, 95, 0.18) 0%, transparent 65%),
+      radial-gradient(50% 45% at 88% 12%, rgba(94, 234, 212, 0.12) 0%, transparent 65%),
+      radial-gradient(70% 60% at 50% 100%, rgba(251, 191, 36, 0.12) 0%, transparent 60%),
+      linear-gradient(180deg, #06080f 0%, #0a0e1a 100%);
     background-attachment: fixed;
   }
 
-  /* Grainy noise overlay applied at the app shell level. Keeps the dark
-     mahogany backdrop from looking like a flat colour fill. SVG fragment
-     embedded as a data URI so it ships in the bundle (≈ 1 KB). */
-  body::before {
-    content: '';
-    position: fixed;
-    inset: 0;
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.35;
-    mix-blend-mode: overlay;
-    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.95 0 0 0 0 0.86 0 0 0 0 0.62 0 0 0 0.12 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  }
-
-  #root {
-    position: relative;
-    z-index: 1;
-    min-height: 100%;
-  }
-
-  /* Cards, seats, and UI chrome should not be selectable — long-press on iOS
-     otherwise pops a copy menu over the game. Inputs and the room name list
-     stay selectable. */
-  .no-select,
+  /* No content selection on UI chrome — long-press on iOS shouldn't pop
+     a copy menu over cards or buttons. Inputs and room names stay
+     selectable through the `select-text` utility where needed. */
   button,
-  [role='button'] {
+  [role='button'],
+  .no-select {
     -webkit-user-select: none;
     user-select: none;
   }
 
-  /* iOS Safari zooms into <input> when its font-size is below 16 px.
-     16 px (= 1rem) is the de-facto minimum. */
+  /* iOS Safari zooms when input font-size is below 16 px. */
   input,
   textarea,
   select {
@@ -74,6 +57,11 @@
      letting individual buttons handle taps. */
   .touch-game {
     touch-action: manipulation;
+  }
+
+  /* Tabular figures for counters that update frequently. */
+  .tnum {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -95,8 +83,34 @@
     padding-right: env(safe-area-inset-right, 0px);
   }
 
-  /* Momentum-scrolling for the lobby room list on iOS. */
   .scroll-touch {
     -webkit-overflow-scrolling: touch;
+  }
+
+  /* Reusable glass surface — combines a tinted background with backdrop blur
+     and a subtle inner highlight stripe so it reads as frosted glass. */
+  .glass {
+    background-color: rgba(20, 27, 48, 0.55);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
+      0 12px 32px -16px rgba(0, 0, 0, 0.7);
+  }
+  .glass-strong {
+    background-color: rgba(14, 20, 36, 0.72);
+    backdrop-filter: blur(24px) saturate(150%);
+    -webkit-backdrop-filter: blur(24px) saturate(150%);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow:
+      inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
+      0 24px 48px -16px rgba(0, 0, 0, 0.85);
+  }
+  .glass-bare {
+    background-color: rgba(20, 27, 48, 0.4);
+    backdrop-filter: blur(14px) saturate(130%);
+    -webkit-backdrop-filter: blur(14px) saturate(130%);
+    border: 1px solid rgba(255, 255, 255, 0.06);
   }
 }

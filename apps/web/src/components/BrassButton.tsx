@@ -8,38 +8,34 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'
   badge?: string | number;
   variant?: BrassVariant;
   icon?: ReactNode;
+  size?: 'md' | 'lg';
 }
 
 /**
- * The "Brass"-style action button — gradient fill, gold border, oval shape.
- * Mirrors apps/mobile's BrassButton variants. Touch targets are 44 px tall
- * (Apple HIG) via `min-h-11`, with `:active` opacity for tap feedback so the
- * button works correctly on touch devices without relying on :hover.
+ * Primary action button — "Midnight Velvet" theme.
+ *
+ * Flat filled buttons with a subtle inner highlight at the top edge (no
+ * brass / gradient). Large rounded corners, generous tap targets, bold
+ * display label.
+ *
+ *  - primary           solid crimson with a subtle gloss
+ *  - danger            same crimson family; alias kept so callers don't break
+ *  - secondary         glass surface with a soft inner border
+ *  - secondary-active  glass surface tinted amber (used for toggled state)
  */
 const VARIANT_STYLES: Record<BrassVariant, string> = {
   primary:
-    'bg-gradient-to-b from-gold-highlight via-gold to-gold-deep text-ink border-[rgba(255,225,160,0.85)] shadow-brass',
+    'text-white bg-crimson-flat border-crimson-400/70 shadow-crimson hover:brightness-105',
   danger:
-    'bg-gradient-to-b from-red-bright via-red-deep to-red-darkest text-cream-soft border-red/70 shadow-card',
+    'text-white bg-crimson-flat border-crimson-400/70 shadow-crimson',
   secondary:
-    'bg-gradient-to-b from-[rgba(40,28,18,0.85)] via-[rgba(15,8,4,0.9)] to-[rgba(15,8,4,0.95)] text-gold-light border-gold/55 shadow-card',
+    'text-bone glass border-white/10',
   'secondary-active':
-    'bg-gradient-to-b from-gold via-red-deep to-[#3a0c0b] text-cream-soft border-gold-highlight shadow-card',
-};
-
-const VARIANT_SHEEN: Record<BrassVariant, string> = {
-  primary:
-    'before:bg-[linear-gradient(180deg,rgba(255,250,220,0.55)_0%,rgba(255,250,220,0)_45%,rgba(0,0,0,0.15)_100%)]',
-  danger:
-    'before:bg-[linear-gradient(180deg,rgba(255,200,180,0.18)_0%,rgba(255,200,180,0)_45%,rgba(0,0,0,0.25)_100%)]',
-  secondary:
-    'before:bg-[linear-gradient(180deg,rgba(212,165,72,0.18)_0%,rgba(212,165,72,0)_50%,rgba(0,0,0,0.35)_100%)]',
-  'secondary-active':
-    'before:bg-[linear-gradient(180deg,rgba(255,225,160,0.35)_0%,rgba(255,225,160,0)_50%,rgba(0,0,0,0.25)_100%)]',
+    'text-ink-950 bg-amber-flat border-amber-300/80 shadow-amber',
 };
 
 export const BrassButton = forwardRef<HTMLButtonElement, Props>(function BrassButton(
-  { label, badge, variant = 'primary', icon, className, disabled, type, ...rest },
+  { label, badge, variant = 'primary', icon, size = 'md', className, disabled, type, ...rest },
   ref,
 ) {
   return (
@@ -49,16 +45,19 @@ export const BrassButton = forwardRef<HTMLButtonElement, Props>(function BrassBu
       disabled={disabled}
       className={cn(
         // Layout
-        'group relative inline-flex min-h-11 min-w-[120px] items-center justify-center gap-2 overflow-hidden rounded-pill border px-6 py-2.5',
+        'group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-pill border',
+        // Sizes (touch-target compliant)
+        size === 'lg'
+          ? 'min-h-[52px] min-w-[140px] px-7 py-3 text-[13px]'
+          : 'min-h-[48px] min-w-[124px] px-6 py-2.5 text-[12px]',
         // Type
-        'font-display text-[12px] font-bold uppercase tracking-[0.18em]',
-        // Interaction
-        'transition-all duration-150 ease-out active:scale-[0.97] active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gold-light',
-        // Sheen ::before adds a subtle vertical highlight stripe like brushed brass
-        'before:pointer-events-none before:absolute before:inset-0 before:rounded-pill before:opacity-90',
+        'font-display font-semibold uppercase tracking-[0.14em]',
+        // Interaction (touch-first — :active + focus-visible)
+        'transition-all duration-150 ease-out active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bone',
+        // Inner highlight stripe via ::before
+        'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-1/2 before:rounded-t-pill before:bg-gradient-to-b before:from-white/25 before:to-transparent',
         VARIANT_STYLES[variant],
-        VARIANT_SHEEN[variant],
-        disabled && 'pointer-events-none opacity-50',
+        disabled && 'pointer-events-none opacity-40',
         className,
       )}
       {...rest}
@@ -68,7 +67,7 @@ export const BrassButton = forwardRef<HTMLButtonElement, Props>(function BrassBu
         <span>{label}</span>
       </span>
       {badge !== undefined ? (
-        <span className="absolute -right-1.5 -top-1.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-pill border border-gold-light bg-ink px-1.5 text-[10px] font-extrabold text-gold-light">
+        <span className="absolute -right-1 -top-1 z-10 inline-flex h-5 min-w-[20px] items-center justify-center rounded-pill border border-white/30 bg-ink-950 px-1.5 text-[10px] font-bold text-white tnum">
           {badge}
         </span>
       ) : null}

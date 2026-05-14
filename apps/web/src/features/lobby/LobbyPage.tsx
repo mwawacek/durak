@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import {
   SOCKET_EVENTS,
   MIN_PLAYERS,
@@ -10,6 +11,7 @@ import {
 import { useGameStore } from '@/store/gameStore';
 import { emitAckOrToast } from '@/services/socket';
 import { BrassButton } from '@/components/BrassButton';
+import { WordMark } from '@/App';
 import { RoomList } from './RoomList';
 import { MyRoomPanel } from './MyRoomPanel';
 import { CreateRoomDialog } from './CreateRoomDialog';
@@ -28,9 +30,6 @@ export const LobbyPage = (): JSX.Element => {
   const myRoom = rooms.find((r) => r.players.some((p) => p.id === playerId));
   const openRooms = rooms.filter((r) => r.status === 'lobby' && r.id !== myRoom?.id);
 
-  // Auto-navigate into a room as soon as it transitions to in-game (because the
-  // host pressed Start). Also handles the case where we joined a room and the
-  // server flips its status while we're on this screen.
   useEffect(() => {
     if (!myRoom) return;
     if (myRoom.status === 'in-game') {
@@ -63,38 +62,33 @@ export const LobbyPage = (): JSX.Element => {
   };
 
   return (
-    <div className="relative flex min-h-dvh flex-col text-cream safe-pt safe-pb">
-      <header className="flex items-end justify-between gap-3 px-5 pt-8">
+    <div className="relative flex min-h-dvh flex-col text-bone safe-pt safe-pb">
+      <header className="flex items-end justify-between gap-3 px-5 pt-10">
         <div>
-          <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-gold-light">
-            Lobby
+          <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
+            Hallo, {playerName ?? '…'}
           </p>
-          <h1 className="mt-1 font-serif text-3xl italic leading-tight text-cream">
-            {playerName ?? '…'}
-          </h1>
-          <p className="mt-0.5 text-[11px] uppercase tracking-[0.25em] text-cream-dim">
-            Wähle einen Tisch.
+          <div className="mt-2">
+            <WordMark size="md" />
+          </div>
+          <p className="mt-1 font-sans text-sm text-bone-mute">
+            Wähle einen Tisch oder eröffne deinen eigenen.
           </p>
-        </div>
-        <div className="pb-1">
-          <BrassButton
-            variant="primary"
-            label="Neuer Tisch"
-            onClick={() => setCreating(true)}
-            disabled={!connected}
-          />
         </div>
       </header>
 
-      <div className="mx-5 mt-5 h-px bg-gradient-to-r from-transparent via-gold/40 to-transparent" />
-
-      <main className="scroll-touch flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-8 pt-5">
+      <main className="scroll-touch flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-32 pt-7">
         {myRoom ? <MyRoomPanel room={myRoom} /> : null}
 
         <section className="flex flex-col gap-3">
-          <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-gold-light">
-            Offene Tische
-          </h2>
+          <div className="flex items-baseline justify-between">
+            <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
+              Offene Tische
+            </h2>
+            <span className="font-mono text-[10px] text-bone-ghost">
+              {openRooms.length}
+            </span>
+          </div>
           <RoomList
             rooms={openRooms}
             onJoin={handleJoin}
@@ -103,6 +97,20 @@ export const LobbyPage = (): JSX.Element => {
           />
         </section>
       </main>
+
+      {/* Floating "create" action — modern bottom CTA. Above safe area. */}
+      <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-5 pb-6 safe-pb">
+        <div className="pointer-events-auto">
+          <BrassButton
+            variant="primary"
+            size="lg"
+            label="Neuer Tisch"
+            icon={<Plus size={16} strokeWidth={2.5} />}
+            onClick={() => setCreating(true)}
+            disabled={!connected}
+          />
+        </div>
+      </div>
 
       {creating ? (
         <CreateRoomDialog
