@@ -12,26 +12,24 @@ interface Props extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'
 }
 
 /**
- * Primary action button — "Midnight Velvet" theme.
+ * Warm-coral action button. The CTA is the only saturated affordance on the
+ * board — secondary actions stay neutral and ghost-styled.
  *
- * Flat filled buttons with a subtle inner highlight at the top edge (no
- * brass / gradient). Large rounded corners, generous tap targets, bold
- * display label.
- *
- *  - primary           solid crimson with a subtle gloss
- *  - danger            same crimson family; alias kept so callers don't break
- *  - secondary         glass surface with a soft inner border
- *  - secondary-active  glass surface tinted amber (used for toggled state)
+ *  - primary, danger    coral gradient pill (same visual; `danger` kept as
+ *                       an alias because callers wired the "Nehmen" button
+ *                       to it conceptually)
+ *  - secondary          transparent pill with hairline border
+ *  - secondary-active   accent-tinted pill (used for toggled "Schieben")
  */
 const VARIANT_STYLES: Record<BrassVariant, string> = {
   primary:
-    'text-white bg-crimson-flat border-crimson-400/70 shadow-crimson hover:brightness-105',
+    'text-white border-accent-light/40 shadow-cta bg-[linear-gradient(180deg,#ff8a7a_0%,#ff6f5e_50%,#ff5a48_100%)]',
   danger:
-    'text-white bg-crimson-flat border-crimson-400/70 shadow-crimson',
+    'text-white border-accent-light/40 shadow-cta bg-[linear-gradient(180deg,#ff8a7a_0%,#ff6f5e_50%,#ff5a48_100%)]',
   secondary:
-    'text-bone glass border-white/10',
+    'text-text-primary border-line-mid bg-white/[0.04] hover:bg-white/[0.06]',
   'secondary-active':
-    'text-ink-950 bg-amber-flat border-amber-300/80 shadow-amber',
+    'text-text-primary border-accent-ring bg-accent-soft',
 };
 
 export const BrassButton = forwardRef<HTMLButtonElement, Props>(function BrassButton(
@@ -44,30 +42,23 @@ export const BrassButton = forwardRef<HTMLButtonElement, Props>(function BrassBu
       type={type ?? 'button'}
       disabled={disabled}
       className={cn(
-        // Layout
-        'group relative inline-flex items-center justify-center gap-2 overflow-hidden rounded-pill border',
-        // Sizes (touch-target compliant)
+        'relative inline-flex items-center justify-center gap-2 rounded-pill border',
         size === 'lg'
-          ? 'min-h-[52px] min-w-[140px] px-7 py-3 text-[13px]'
-          : 'min-h-[48px] min-w-[124px] px-6 py-2.5 text-[12px]',
-        // Type
-        'font-display font-semibold uppercase tracking-[0.14em]',
-        // Interaction (touch-first — :active + focus-visible)
-        'transition-all duration-150 ease-out active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-bone',
-        // Inner highlight stripe via ::before
-        'before:pointer-events-none before:absolute before:inset-x-0 before:top-0 before:h-1/2 before:rounded-t-pill before:bg-gradient-to-b before:from-white/25 before:to-transparent',
+          ? 'min-h-[50px] min-w-[148px] px-7 py-3 text-[13px]'
+          : 'min-h-[44px] min-w-[120px] px-5 py-2.5 text-[12.5px]',
+        'font-sans font-semibold tracking-[0.04em]',
+        'transition-[transform,opacity] duration-150 ease-out active:scale-[0.97]',
+        'focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent',
         VARIANT_STYLES[variant],
         disabled && 'pointer-events-none opacity-40',
         className,
       )}
       {...rest}
     >
-      <span className="relative z-10 inline-flex items-center gap-2">
-        {icon}
-        <span>{label}</span>
-      </span>
+      {icon}
+      <span>{label}</span>
       {badge !== undefined ? (
-        <span className="absolute -right-1 -top-1 z-10 inline-flex h-5 min-w-[20px] items-center justify-center rounded-pill border border-white/30 bg-ink-950 px-1.5 text-[10px] font-bold text-white tnum">
+        <span className="ml-1 inline-flex h-5 min-w-[20px] items-center justify-center rounded-pill bg-black/30 px-1.5 text-[10px] font-bold tnum">
           {badge}
         </span>
       ) : null}

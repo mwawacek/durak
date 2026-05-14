@@ -1,60 +1,36 @@
 /**
- * Subset of design tokens that need to be referenced from JS / inline SVG
- * (where Tailwind class names don't reach). Keep in sync with
- * `tailwind.config.ts` — these are the source of truth for SVG fills,
- * gradient stops, and any element that uses inline `style`.
+ * Subset of design tokens that need to be referenced from JS / inline SVG.
+ * Mirrors tailwind.config.ts. Source of truth for SVG fills and inline
+ * `style` colours.
  *
- * Theme: "Midnight Velvet" — deep cool base, electric crimson + amber accents.
+ * Theme: warm-dark with a single coral accent. No casino, no glassmorphism.
  */
 export const tokens = {
-  ink: {
-    950: '#06080f',
-    900: '#0a0e1a',
-    800: '#0e1424',
-    700: '#141b30',
-    600: '#1b2540',
+  bg: {
+    base: '#0a0907',
+    mid: '#100e0b',
+    top: '#1b1815',
+    card: '#1a1714',
   },
-
-  felt: {
-    dark: '#031a1a',
-    mid: '#072a2a',
-    base: '#0d3b3b',
-    light: '#0f4747',
-    shadow: 'rgba(0,0,0,0.55)',
+  surface: {
+    card: '#fbfaf7',
   },
-
-  crimson: {
-    400: '#ff5572',
-    500: '#ff3b5f',
-    600: '#e63956',
-    700: '#b8243e',
-    soft: 'rgba(255,59,95,0.55)',
+  accent: {
+    base: '#ff6f5e',
+    light: '#ff8a7a',
+    deep: '#ff5a48',
+    glow: 'rgba(255,111,94,0.18)',
   },
-
-  amber: {
-    300: '#fcd34d',
-    400: '#fbbf24',
-    500: '#f59e0b',
-    soft: 'rgba(251,191,36,0.45)',
+  text: {
+    primary: '#fbfaf7',
+    secondary: 'rgba(255,255,255,0.5)',
+    tertiary: 'rgba(255,255,255,0.32)',
+    label: 'rgba(255,255,255,0.42)',
   },
-
-  mint: {
-    300: '#6ee7b7',
-    400: '#5eead4',
-    500: '#34d399',
+  suit: {
+    red: '#e23b46',
+    black: '#15161a',
   },
-
-  bone: '#fafaf7',
-  boneDim: '#e7e5e0',
-  boneMute: 'rgba(250,250,247,0.65)',
-
-  cardFace: '#fafaf7',
-  cardFaceShadow: '#eceae3',
-  cardSuitRed: '#dc2626',
-  cardSuitInk: '#0f172a',
-
-  glassLine: 'rgba(255,255,255,0.10)',
-  glassLineSoft: 'rgba(255,255,255,0.06)',
-
-  warmAlert: '#fbbf24',
+  cardBackTop: '#2a2620',
+  cardBackBottom: '#1a1714',
 } as const;

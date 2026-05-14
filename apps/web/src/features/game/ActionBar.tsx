@@ -1,133 +1,81 @@
 import { RingedAvatar } from '@/components/RingedAvatar';
 import { BrassButton } from '@/components/BrassButton';
-import { cn } from '@/lib/cn';
-
-interface BannerProps {
-  line: string;
-  sub: string;
-}
 
 interface Props {
   playerName: string | null;
-  bannerHeight: number;
-  actionRowHeight: number;
-  banner: BannerProps;
-  isAttacker: boolean;
-  isDefender: boolean;
-  needsConfirm: boolean;
-  canEndTurn: boolean;
-  canTake: boolean;
-  canRedirect: boolean;
-  redirectMode: boolean;
-  undefendedCount: number;
+  /** Banner headline (typically derived from game state). */
+  headline: string;
+  subline: string;
+  /** Role label shown under the player's name. */
+  roleLabel: string;
+  active: boolean;
+  /** Primary CTA — usually "Bito" or "Nehmen". Hidden when neither applies. */
+  primary?: { label: string; onClick: () => void; badge?: string | number } | null;
+  /** Optional ghost button for the rare "Schieben" (Weiterschieben) state. */
+  ghost?: { label: string; onClick: () => void; toggled?: boolean } | null;
   busy: boolean;
-  onEndTurn: () => void;
-  onTake: () => void;
-  onToggleRedirect: () => void;
 }
-
-const roleLabel = (isAttacker: boolean, isDefender: boolean, needsConfirm: boolean): string => {
-  if (needsConfirm) return 'BITO';
-  if (isDefender) return 'VERTEIDIGUNG';
-  if (isAttacker) return 'ANGRIFF';
-  return 'WARTEN';
-};
-
-const roleColor = (isAttacker: boolean, isDefender: boolean, needsConfirm: boolean): string => {
-  if (needsConfirm) return 'text-amber-300';
-  if (isDefender) return 'text-mint-300';
-  if (isAttacker) return 'text-crimson-400';
-  return 'text-bone-ghost';
-};
 
 export const ActionBar = ({
   playerName,
-  bannerHeight,
-  actionRowHeight,
-  banner,
-  isAttacker,
-  isDefender,
-  needsConfirm,
-  canEndTurn,
-  canTake,
-  canRedirect,
-  redirectMode,
-  undefendedCount,
+  headline,
+  subline,
+  roleLabel,
+  active,
+  primary,
+  ghost,
   busy,
-  onEndTurn,
-  onTake,
-  onToggleRedirect,
-}: Props): JSX.Element => {
-  const active = isAttacker || isDefender || needsConfirm;
-  const tone = isAttacker ? 'attacker' : isDefender ? 'defender' : 'neutral';
-  return (
-    <>
-      <div
-        className="flex items-center justify-center px-4 text-center"
-        style={{ height: bannerHeight }}
+}: Props): JSX.Element => (
+  <div className="flex flex-col gap-2 pb-2">
+    {/* Headline block */}
+    <div className="px-4 text-center">
+      <p
+        className="font-serif text-[22px] font-medium leading-tight text-text-primary"
+        style={{ letterSpacing: '-0.015em' }}
       >
-        <div>
-          <p className="truncate font-display text-2xl leading-tight text-bone">{banner.line}</p>
-          <p className="mt-1 truncate font-display text-[9px] font-bold uppercase tracking-[0.4em] text-bone-mute">
-            {banner.sub}
+        {headline}
+      </p>
+      <p className="mt-0.5 font-sans text-[11.5px] text-text-secondary">{subline}</p>
+    </div>
+
+    {/* Action bar */}
+    <div className="flex h-[50px] items-center justify-between gap-3 px-4">
+      <div className="flex shrink-0 items-center gap-2">
+        <RingedAvatar
+          initials={(playerName?.[0] ?? '?').toUpperCase()}
+          active={active}
+          size={30}
+        />
+        <div className="leading-tight">
+          <p className="max-w-[110px] truncate font-sans text-[14px] font-medium text-text-primary">
+            {playerName ?? 'Du'}
+          </p>
+          <p className="mt-0.5 font-sans text-[9px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
+            {roleLabel}
           </p>
         </div>
       </div>
 
-      <div
-        className="flex items-center justify-between gap-3 px-3"
-        style={{ height: actionRowHeight }}
-      >
-        <div
-          className={cn(
-            'glass-bare flex shrink-0 items-center gap-2 rounded-pill py-1 pl-1 pr-3 transition-all',
-            active && 'ring-1 ring-bone/20',
-          )}
-        >
-          <RingedAvatar
-            initials={(playerName?.[0] ?? 'D').toUpperCase()}
-            active={active}
-            size={30}
-            tone={tone}
+      <div className="flex items-center gap-2">
+        {ghost ? (
+          <BrassButton
+            variant={ghost.toggled ? 'secondary-active' : 'secondary'}
+            label={ghost.label}
+            onClick={ghost.onClick}
+            disabled={busy}
           />
-          <div className="min-w-0">
-            <p className="max-w-[88px] truncate font-sans text-sm font-semibold leading-tight text-bone">
-              {playerName ?? 'Du'}
-            </p>
-            <p
-              className={cn(
-                'font-display text-[8px] font-bold tracking-[0.35em]',
-                roleColor(isAttacker, isDefender, needsConfirm),
-              )}
-            >
-              {roleLabel(isAttacker, isDefender, needsConfirm)}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex shrink flex-wrap justify-end gap-2">
-          {canEndTurn ? (
-            <BrassButton variant="primary" label="Fertig" onClick={onEndTurn} disabled={busy} />
-          ) : null}
-          {canTake ? (
-            <BrassButton
-              variant="danger"
-              label="Nehmen"
-              badge={undefendedCount > 0 ? `+${undefendedCount}` : undefined}
-              onClick={onTake}
-              disabled={busy}
-            />
-          ) : null}
-          {canRedirect ? (
-            <BrassButton
-              variant={redirectMode ? 'secondary-active' : 'secondary'}
-              label={redirectMode ? 'Abbrechen' : 'Schieben'}
-              onClick={onToggleRedirect}
-              disabled={busy}
-            />
-          ) : null}
-        </div>
+        ) : null}
+        {primary ? (
+          <BrassButton
+            variant="primary"
+            size="lg"
+            label={primary.label}
+            badge={primary.badge}
+            onClick={primary.onClick}
+            disabled={busy}
+          />
+        ) : null}
       </div>
-    </>
-  );
-};
+    </div>
+  </div>
+);

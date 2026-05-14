@@ -6,25 +6,10 @@ import { NameEntryModal } from '@/components/NameEntryModal';
 import { BrassButton } from '@/components/BrassButton';
 import { WaitingRoom } from '@/features/waiting/WaitingRoom';
 
-// Code-split the game table — it pulls in Card, SVG layouts, and Framer
-// Motion, none of which are needed for the lobby / waiting-room paths.
-// On a fresh /r/:id deep link the user spends a few hundred ms in the
-// WaitingRoom anyway, which is plenty of time to fetch the game chunk.
 const GameTable = lazy(() =>
   import('@/features/game/GameTable').then((m) => ({ default: m.GameTable })),
 );
 
-/**
- * /r/:roomId — entry point for shareable room URLs.
- *
- *   - No name in store → blocking NameEntryModal.
- *   - Name + roomId, but socket not connected yet → "Verbinde…" placeholder.
- *   - Connected and joined, room.status === 'lobby' → WaitingRoom.
- *   - Connected and joined, room.status === 'in-game' → GameTable.
- *   - Connected, room exists but I'm not in it and it's already in-game →
- *     "Spiel läuft bereits" message with a link back to the lobby.
- *   - Connected and room not found → "Raum nicht gefunden".
- */
 export const RoomRoute = (): JSX.Element => {
   const { roomId } = useParams();
   const playerName = useGameStore((s) => s.playerName);
@@ -43,8 +28,6 @@ export const RoomRoute = (): JSX.Element => {
     return <PlaceholderScreen title="Verbinde…" sub="Server wird kontaktiert" />;
   }
 
-  // Wait for the JOIN_LOBBY ack — otherwise we'd briefly show "Raum nicht
-  // gefunden" between socket connect and the first room list update.
   if (!lobbyJoined) {
     return <PlaceholderScreen title="Lade Lobby…" sub="Räume werden synchronisiert" />;
   }
@@ -72,7 +55,6 @@ export const RoomRoute = (): JSX.Element => {
   }
 
   if (!iAmInRoom) {
-    // We're trying to join — useRoomMembership has fired. Show a soft loader.
     return <PlaceholderScreen title="Trete dem Tisch bei…" sub={room.name} />;
   }
 
@@ -98,16 +80,26 @@ interface ScreenProps {
 }
 
 const PlaceholderScreen = ({ title, sub }: ScreenProps): JSX.Element => (
-  <main className="flex min-h-dvh flex-col items-center justify-center gap-3 px-6 text-center text-bone safe-pt safe-pb">
-    <h1 className="font-display text-2xl">{title}</h1>
-    {sub ? <p className="text-sm text-bone-mute">{sub}</p> : null}
+  <main className="flex h-dvh flex-col items-center justify-center gap-2 px-6 text-center text-text-primary safe-pt safe-pb">
+    <h1
+      className="font-serif text-2xl text-text-primary"
+      style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
+    >
+      {title}
+    </h1>
+    {sub ? <p className="font-sans text-sm text-text-secondary">{sub}</p> : null}
   </main>
 );
 
 const ErrorScreen = ({ title, body }: ScreenProps): JSX.Element => (
-  <main className="flex min-h-dvh flex-col items-center justify-center gap-4 px-6 text-center text-bone safe-pt safe-pb">
-    <h1 className="font-display text-2xl">{title}</h1>
-    {body ? <p className="text-sm text-bone-mute">{body}</p> : null}
+  <main className="flex h-dvh flex-col items-center justify-center gap-4 px-6 text-center text-text-primary safe-pt safe-pb">
+    <h1
+      className="font-serif text-2xl text-text-primary"
+      style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
+    >
+      {title}
+    </h1>
+    {body ? <p className="font-sans text-sm text-text-secondary">{body}</p> : null}
     <Link to="/">
       <BrassButton variant="primary" label="Zur Lobby" />
     </Link>

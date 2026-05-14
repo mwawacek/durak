@@ -2,9 +2,9 @@ import { useGameStore } from '@/store/gameStore';
 import { cn } from '@/lib/cn';
 
 /**
- * Tiny glass pill in the top-right corner showing socket connection state.
- * Hidden once everything is fine and a game is active so it doesn't compete
- * with the table.
+ * Tiny corner pill — only visible while the socket isn't fully up. Once a
+ * game is active and we're connected, it hides so it doesn't compete with
+ * the play area.
  */
 export const ConnectionBadge = (): JSX.Element | null => {
   const connected = useGameStore((s) => s.connected);
@@ -16,19 +16,17 @@ export const ConnectionBadge = (): JSX.Element | null => {
     <div className="pointer-events-none fixed right-3 top-3 z-40 flex justify-end safe-pt safe-pr">
       <div
         className={cn(
-          'glass-bare flex items-center gap-2 rounded-pill px-3 py-1.5 font-display text-[10px] font-bold uppercase tracking-[0.18em]',
-          connected ? 'text-bone-mute' : 'text-crimson-400',
+          'flex items-center gap-1.5 rounded-pill border bg-bg-card/80 px-2.5 py-1 font-sans text-[10px] font-semibold uppercase tracking-[0.16em] backdrop-blur',
+          connected ? 'border-line-mid text-text-tertiary' : 'border-accent/30 text-accent',
         )}
       >
         <span
           className={cn(
-            'h-2 w-2 rounded-full',
-            connected
-              ? 'bg-mint-400 shadow-[0_0_10px_rgba(94,234,212,0.7)]'
-              : 'animate-pulse-ring bg-crimson-500 shadow-[0_0_10px_rgba(255,59,95,0.7)]',
+            'h-1.5 w-1.5 rounded-full',
+            connected ? 'bg-text-secondary' : 'animate-pulse-ring bg-accent',
           )}
         />
-        {connected ? 'verbunden' : 'verbinde …'}
+        {connected ? 'verbunden' : 'verbinde'}
       </div>
     </div>
   );

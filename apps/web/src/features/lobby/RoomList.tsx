@@ -11,10 +11,11 @@ interface Props {
 export const RoomList = ({ rooms, onJoin, joinPending }: Props): JSX.Element => {
   if (rooms.length === 0) {
     return (
-      <div className="glass-bare flex flex-col items-center gap-3 rounded-card px-5 py-10 text-center">
-        <span className="font-display text-3xl text-bone-ghost tracking-[0.3em]">·   ·   ·</span>
-        <p className="font-display text-lg text-bone">Keine offenen Tische</p>
-        <p className="max-w-[32ch] font-sans text-sm text-bone-mute">
+      <div className="flex flex-col items-center gap-2 rounded-panel border border-dashed border-line-mid px-5 py-10 text-center">
+        <p className="font-serif text-lg text-text-primary" style={{ fontWeight: 500 }}>
+          Keine offenen Tische
+        </p>
+        <p className="max-w-[32ch] font-sans text-sm text-text-secondary">
           Eröffne einen neuen oder warte, bis jemand einen Tisch aufmacht.
         </p>
       </div>
@@ -25,9 +26,9 @@ export const RoomList = ({ rooms, onJoin, joinPending }: Props): JSX.Element => 
       {rooms.map((room, i) => (
         <motion.li
           key={room.id}
-          initial={{ opacity: 0, y: 12 }}
+          initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: i * 0.05, duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
+          transition={{ delay: i * 0.04, duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
         >
           <RoomRow room={room} onJoin={() => onJoin(room)} disabled={joinPending} />
         </motion.li>

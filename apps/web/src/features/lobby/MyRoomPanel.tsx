@@ -28,16 +28,16 @@ export const MyRoomPanel = ({ room }: Props): JSX.Element => {
   };
 
   return (
-    <section className="glass-strong relative overflow-hidden rounded-card p-5">
-      {/* Crimson accent rail */}
-      <span className="absolute left-0 top-0 h-full w-[3px] bg-gradient-to-b from-crimson-400 via-crimson-500 to-amber-400" />
-
+    <section className="rounded-panel border border-line-mid bg-bg-card/60 p-5">
       <div className="flex items-baseline gap-3">
-        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-amber-300">
-          Dein Tisch
-        </h2>
-        <p className="flex-1 truncate font-display text-lg leading-tight text-bone">{room.name}</p>
-        <span className="rounded-pill bg-white/5 px-2.5 py-0.5 font-mono text-[11px] text-bone-mute tnum">
+        <span className="label-eyebrow text-accent">Dein Tisch</span>
+        <p
+          className="flex-1 truncate font-serif text-lg text-text-primary"
+          style={{ fontWeight: 500, letterSpacing: '-0.01em' }}
+        >
+          {room.name}
+        </p>
+        <span className="rounded-pill border border-line-subtle bg-white/[0.04] px-2 py-0.5 font-mono text-[10.5px] text-text-secondary tnum">
           {room.players.length}/{room.maxPlayers}
         </span>
       </div>
@@ -47,24 +47,20 @@ export const MyRoomPanel = ({ room }: Props): JSX.Element => {
           <li key={p.id} className="flex items-center gap-2.5">
             <span
               className={cn(
-                'h-2 w-2 rounded-full',
-                p.isConnected
-                  ? 'bg-mint-400 shadow-[0_0_8px_rgba(94,234,212,0.5)]'
-                  : 'bg-bone-ghost',
+                'h-1.5 w-1.5 rounded-full',
+                p.isConnected ? 'bg-accent' : 'bg-text-tertiary',
               )}
             />
-            <span className="flex-1 truncate font-sans text-base text-bone">{p.name}</span>
-            {p.id === room.ownerId ? (
-              <span className="rounded-pill bg-amber-400/15 px-2 py-0.5 font-display text-[9px] font-bold uppercase tracking-[0.2em] text-amber-300">
-                Host
-              </span>
-            ) : null}
+            <span className="flex-1 truncate font-sans text-[15px] text-text-primary">
+              {p.name}
+            </span>
+            {p.id === room.ownerId ? <span className="label-eyebrow">Host</span> : null}
           </li>
         ))}
       </ul>
 
       {!canStart && room.players.length < MIN_PLAYERS ? (
-        <p className="mt-4 font-sans text-sm text-bone-mute">
+        <p className="mt-4 font-sans text-sm text-text-secondary">
           Mindestens {MIN_PLAYERS} Spieler nötig — teile den Link.
         </p>
       ) : null}

@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  MAX_TABLE_PAIRS,
   SOCKET_EVENTS,
   beats,
   type Card as CardType,
@@ -9,16 +8,11 @@ import {
 import { useGameStore } from '@/store/gameStore';
 import { emitAckOrToast } from '@/services/socket';
 import { useGameRules } from '@/hooks/useGameRules';
-import {
-  seatLayoutFor,
-  useOpponentSeats,
-  useTableGeometry,
-} from '@/hooks/useTableLayout';
 import { vibrate } from '@/lib/vibrate';
-import { OvalTable } from './OvalTable';
-import { OpponentSeat } from './OpponentSeat';
-import { TrumpReservoir } from './TrumpReservoir';
-import { DiscardIndicator } from './DiscardIndicator';
+import { OpponentRow, type SeatRole } from './OpponentRow';
+import { PlayArea } from './PlayArea';
+import { TrumpWell } from './TrumpWell';
+import { DiscardWell } from './DiscardWell';
 import { BattleField } from './BattleField';
 import { PlayerHand } from './PlayerHand';
 import { ActionBar } from './ActionBar';
@@ -31,57 +25,15 @@ type Selection =
 
 const NO_SELECTION: Selection = { kind: 'none' };
 
-// Bottom strip layout — single source of truth so Hand height + Action row
-// height + buffers add up to the geometry hook's `reservedBottom`.
-const HAND_BLOCK_H = 168;
-const ACTION_BLOCK_H = 64;
-const BANNER_BLOCK_H = 48;
-
 interface Props {
   game: GameStatePrivate;
   roomId: string;
 }
 
-interface BannerArgs {
-  isAttacker: boolean;
-  isDefender: boolean;
-  canRedirect: boolean;
-  tableLen: number;
-  defenderName: string | undefined;
-  awaitingFrom: string[];
-  needsMyConfirmation: boolean;
-}
-
-const buildBanner = (args: BannerArgs): { line: string; sub: string } => {
-  if (args.needsMyConfirmation) {
-    return { line: 'Nachlegen oder Bito', sub: 'Karte legen oder „Fertig" tippen' };
-  }
-  if (args.awaitingFrom.length > 0) {
-    return { line: `Warte auf ${args.awaitingFrom.join(', ')}`, sub: 'Bestätigung steht aus' };
-  }
-  if (args.isAttacker) {
-    return { line: args.tableLen === 0 ? 'Du greifst an' : 'Dein Zug', sub: 'Karte spielen' };
-  }
-  if (args.isDefender) {
-    return args.canRedirect
-      ? { line: 'Verteidigen oder Weiterschieben', sub: 'Karte tippen zum Schlagen' }
-      : { line: 'Du verteidigst', sub: 'Karte tippen' };
-  }
-  return { line: `${args.defenderName ?? 'Gegner'} verteidigt`, sub: 'Bitte warten' };
-};
-
 export const GameTable = ({ game, roomId }: Props): JSX.Element => {
   const playerId = useGameStore((s) => s.playerId);
   const playerName = useGameStore((s) => s.playerName);
   const setError = useGameStore((s) => s.setError);
-
-  // Baseline pixels reserved for the system status bar at the top and the
-  // home-indicator + safe-area at the bottom. The visible safe-area itself
-  // is handled by Tailwind .safe-* utilities; this just steals room from
-  // the ellipse geometry so seats don't sit under the notch / home bar.
-  const topInset = 24;
-  const reservedBottom = HAND_BLOCK_H + ACTION_BLOCK_H + BANNER_BLOCK_H + 24;
-  const geometry = useTableGeometry({ topInset, reservedBottom });
 
   const [selection, setSelection] = useState<Selection>(NO_SELECTION);
   const busyRef = useRef(false);
@@ -97,8 +49,10 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
 
   const redirectMode = selection.kind === 'redirect';
   const selectedCardId = selection.kind === 'card' ? selection.cardId : null;
+  const selectedCard = selectedCardId
+    ? game.you.hand.find((c) => c.id === selectedCardId)
+    : null;
 
-  const rules = useGameRules({ game, playerId, selectedCardId, redirectMode });
   const {
     isAttacker,
     isDefender,
@@ -109,9 +63,8 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     undefendedCount,
     needsMyConfirmation,
     awaitingFrom,
-  } = rules;
+  } = useGameRules({ game, playerId, selectedCardId, redirectMode });
 
-  // Reset stale selection state when hand changes.
   useEffect(() => {
     if (selectedCardId && !game.you.hand.some((c) => c.id === selectedCardId)) {
       setSelection(NO_SELECTION);
@@ -124,9 +77,20 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     () => game.players.filter((p) => p.id !== playerId),
     [game.players, playerId],
   );
-  const seats = useOpponentSeats(opponents, game.attackerId, game.defenderId, geometry);
-  const seatLayout = seatLayoutFor(opponents.length);
-  const battleSize: 'sm' | 'md' = game.table.length >= MAX_TABLE_PAIRS - 1 ? 'sm' : 'md';
+
+  const seats = useMemo(
+    () =>
+      opponents.map((p) => {
+        const role: SeatRole =
+          p.id === game.attackerId
+            ? 'attacker'
+            : p.id === game.defenderId
+              ? 'defender'
+              : 'wait';
+        return { player: p, role };
+      }),
+    [opponents, game.attackerId, game.defenderId],
+  );
 
   const playDefense = async (attackCardId: string, defenseCard: CardType) => {
     setBusy(true);
@@ -163,7 +127,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
 
     if (isDefender) {
       if (!playableCardIds.has(card.id)) {
-        setError('Diese Karte schlägt keinen Angriff');
+        setError('Karte schlägt nicht');
         return;
       }
       const candidates = game.table
@@ -182,7 +146,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     }
 
     if (!playableCardIds.has(card.id)) {
-      setError('Diese Karte kann gerade nicht gespielt werden');
+      setError('Karte kann gerade nicht gespielt werden');
       return;
     }
     setBusy(true);
@@ -222,120 +186,91 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' });
   };
 
-  const canEndTurn = needsMyConfirmation;
-  const canTake = isDefender && game.table.length > 0 && undefendedCount > 0;
-  const banner = buildBanner({
+  // Tap on the play area with a selected card → if I'm the defender and the
+  // card has exactly one undefended target, commit the defense. Pure-attacker
+  // path is already handled by tapping the hand card directly.
+  const handlePlayAreaTap = async () => {
+    if (!isDefender || !selectedCard) return;
+    if (candidateAttackIds.size !== 1) return;
+    const [only] = candidateAttackIds;
+    if (only) await playDefense(only, selectedCard);
+  };
+
+  const headline = buildHeadline({
     isAttacker,
     isDefender,
     canRedirect,
+    needsMyConfirmation,
+    awaitingFrom,
     tableLen: game.table.length,
     defenderName: defender?.name,
-    awaitingFrom,
-    needsMyConfirmation,
+    redirectMode,
   });
 
-  // Trump and discard sit inside the bottom of the felt area so they don't
-  // compete with rim seats, even at 5 opponents.
-  const insideY = geometry.cy + geometry.ry - 80;
+  const roleLabel = isAttacker
+    ? 'Angriff'
+    : isDefender
+      ? 'Verteidigung'
+      : needsMyConfirmation
+        ? 'Bito'
+        : 'Warten';
+
+  const primary = needsMyConfirmation
+    ? { label: 'Bito', onClick: handleEndTurn }
+    : isDefender && game.table.length > 0 && undefendedCount > 0
+      ? { label: 'Nehmen', onClick: handleTake, badge: `+${undefendedCount}` }
+      : null;
+
+  const ghost = canRedirect
+    ? { label: redirectMode ? 'Abbrechen' : 'Schieben', onClick: handleToggleRedirect, toggled: redirectMode }
+    : null;
 
   const isFinished = game.phase === 'finished';
   const loser = isFinished ? game.players.find((p) => p.id === game.loserId) : undefined;
 
   return (
-    <div className="relative h-dvh w-full overflow-hidden text-bone touch-game safe-pl safe-pr">
-      {/* Table layer */}
-      <div
-        className="pointer-events-none absolute left-0"
-        style={{
-          top: geometry.tableTop,
-          width: geometry.tableW,
-          height: geometry.tableH,
-        }}
+    <div className="relative flex h-dvh w-full flex-col overflow-hidden text-text-primary touch-game safe-pt safe-pb safe-pl safe-pr">
+      <OpponentRow seats={seats} />
+
+      <PlayArea
+        awaitingDrop={!!selectedCard}
+        empty={game.table.length === 0}
+        onTap={handlePlayAreaTap}
       >
-        <OvalTable
-          width={geometry.tableW}
-          height={geometry.tableH}
-          cx={geometry.cx}
-          cy={geometry.cy}
-          rx={geometry.rx}
-          ry={geometry.ry}
+        <BattleField
+          pairs={game.table}
+          onAttackPress={isDefender ? handleAttackTap : undefined}
+          highlightedAttackIds={candidateAttackIds}
         />
+      </PlayArea>
 
-        {seats.map((seat) => (
-          <div
-            key={seat.player.id}
-            className="pointer-events-auto absolute flex justify-center"
-            style={{
-              left: seat.x - seatLayout.boxWidth / 2,
-              top: seat.y - 30,
-              width: seatLayout.boxWidth,
-            }}
-          >
-            <OpponentSeat player={seat.player} role={seat.role} size={seatLayout.size} />
-          </div>
-        ))}
-
-        <div className="pointer-events-auto absolute" style={{ left: 14, top: insideY }}>
-          <TrumpReservoir
-            trumpCard={game.trumpCard}
-            trumpSuit={game.trumpSuit}
-            deckCount={game.deckCount}
-            cardW={42}
-          />
-        </div>
-
-        <div className="pointer-events-auto absolute" style={{ right: 14, top: insideY + 18 }}>
-          <DiscardIndicator count={game.discardCount} />
-        </div>
-
-        <div
-          className="pointer-events-auto absolute flex w-[220px] items-center justify-center"
-          style={{ left: geometry.cx - 110, top: geometry.cy - 80 }}
-        >
-          <BattleField
-            pairs={game.table}
-            size={battleSize}
-            onAttackPress={isDefender ? handleAttackTap : undefined}
-            highlightedAttackIds={candidateAttackIds}
-          />
-        </div>
+      <div className="mt-4 flex items-center justify-between px-4">
+        <TrumpWell
+          trumpCard={game.trumpCard}
+          trumpSuit={game.trumpSuit}
+          deckCount={game.deckCount}
+        />
+        <DiscardWell count={game.discardCount} />
       </div>
 
-      {/* Bottom strip — banner → action row → hand */}
-      <div
-        className="pointer-events-none absolute inset-x-0 bottom-0 safe-pb"
-        style={{ height: BANNER_BLOCK_H + ACTION_BLOCK_H + HAND_BLOCK_H }}
-      >
-        <div className="pointer-events-auto">
-          <ActionBar
-            playerName={playerName}
-            bannerHeight={BANNER_BLOCK_H}
-            actionRowHeight={ACTION_BLOCK_H}
-            banner={banner}
-            isAttacker={isAttacker}
-            isDefender={isDefender}
-            needsConfirm={needsMyConfirmation}
-            canEndTurn={canEndTurn}
-            canTake={canTake}
-            canRedirect={canRedirect}
-            redirectMode={redirectMode}
-            undefendedCount={undefendedCount}
-            busy={busy}
-            onEndTurn={handleEndTurn}
-            onTake={handleTake}
-            onToggleRedirect={handleToggleRedirect}
-          />
-        </div>
-
-        <div className="pointer-events-auto" style={{ height: HAND_BLOCK_H }}>
-          <PlayerHand
-            hand={game.you.hand}
-            trumpSuit={game.trumpSuit}
-            selectedCardId={selectedCardId}
-            onSelect={handleCardSelect}
-            playableIds={playableCardIds}
-          />
-        </div>
+      <div className="mt-auto">
+        <ActionBar
+          playerName={playerName}
+          headline={headline.line}
+          subline={headline.sub}
+          roleLabel={roleLabel}
+          active={isAttacker || isDefender || needsMyConfirmation}
+          primary={primary}
+          ghost={ghost}
+          busy={busy}
+        />
+        <PlayerHand
+          hand={game.you.hand}
+          trumpSuit={game.trumpSuit}
+          selectedCardId={selectedCardId}
+          onSelect={handleCardSelect}
+          playableIds={playableCardIds}
+        />
       </div>
 
       {isFinished ? (
@@ -343,4 +278,44 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
       ) : null}
     </div>
   );
+};
+
+interface HeadlineArgs {
+  isAttacker: boolean;
+  isDefender: boolean;
+  canRedirect: boolean;
+  needsMyConfirmation: boolean;
+  awaitingFrom: string[];
+  tableLen: number;
+  defenderName: string | undefined;
+  redirectMode: boolean;
+}
+
+const buildHeadline = (a: HeadlineArgs): { line: string; sub: string } => {
+  if (a.needsMyConfirmation) {
+    return { line: 'Nachlegen oder Bito', sub: 'Karte legen — oder „Bito" tippen.' };
+  }
+  if (a.awaitingFrom.length > 0) {
+    return {
+      line: `Warte auf ${a.awaitingFrom.join(', ')}`,
+      sub: 'Bestätigung steht aus.',
+    };
+  }
+  if (a.isAttacker) {
+    return a.tableLen === 0
+      ? { line: 'Du bist am Zug', sub: 'Wähle eine Karte aus der Hand.' }
+      : { line: 'Dein Zug', sub: 'Lege nach oder warte ab.' };
+  }
+  if (a.isDefender) {
+    if (a.redirectMode) {
+      return { line: 'Karte zum Weiterschieben', sub: 'Nur gleicher Wert wie oben.' };
+    }
+    return a.canRedirect
+      ? { line: 'Schlagen oder schieben', sub: 'Karte zum Schlagen wählen.' }
+      : { line: 'Karte zum Schlagen wählen', sub: 'Höher in der Farbe — oder Trumpf.' };
+  }
+  return {
+    line: `${a.defenderName ?? 'Gegner'} verteidigt`,
+    sub: 'Warte, bis der Zug abgeschlossen ist.',
+  };
 };

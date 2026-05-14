@@ -2,52 +2,34 @@ import { memo } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import type { AttackPair } from '@durak/shared';
 import { Card } from '@/components/Card';
-import { cn } from '@/lib/cn';
+import { PLAY_CARD_W, cardDims } from '@/components/cardSizes';
 
 interface Props {
   pairs: AttackPair[];
-  size?: 'sm' | 'md';
   onAttackPress?: (attackCardId: string) => void;
   highlightedAttackIds?: Set<string>;
-  className?: string;
 }
 
 /**
- * Battle field — recessed glass slot where attacks and defenses sit.
- * Cards animate in / out smoothly. Undefended attacks get a soft amber
- * outline (modern, no dashed lines).
+ * Inside the PlayArea: a 3-column grid of attack/defense pairs. The defense
+ * card sits offset over the attack with a small rotation. New pairs ease
+ * in via Framer Motion.
  */
-const BattleFieldImpl = ({
-  pairs,
-  size = 'md',
-  onAttackPress,
-  highlightedAttackIds,
-  className,
-}: Props): JSX.Element => {
-  const cardW = size === 'sm' ? 44 : 64;
-  const gap = size === 'sm' ? 6 : 10;
+const BattleFieldImpl = ({ pairs, onAttackPress, highlightedAttackIds }: Props): JSX.Element => {
   return (
-    <div
-      className={cn(
-        'glass-bare flex max-w-full flex-wrap items-center justify-center rounded-card p-3 shadow-[inset_0_2px_8px_rgba(0,0,0,0.5)]',
-        className,
-      )}
-      style={{ gap }}
-    >
+    <div className="grid grid-cols-3 gap-2.5">
       <AnimatePresence initial={false}>
         {pairs.map((p) => (
           <motion.div
             key={p.attack.id}
             layout
-            initial={{ opacity: 0, y: -14, scale: 0.9 }}
+            initial={{ opacity: 0, y: -10, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 10, scale: 0.88 }}
-            transition={{ duration: 0.3, ease: [0.2, 0.7, 0.2, 1] }}
+            exit={{ opacity: 0, y: 8, scale: 0.9 }}
+            transition={{ duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
           >
             <BattlePair
               pair={p}
-              size={size}
-              cardW={cardW}
               highlighted={highlightedAttackIds?.has(p.attack.id) ?? false}
               onClick={onAttackPress ? () => onAttackPress(p.attack.id) : undefined}
             />
@@ -62,21 +44,19 @@ export const BattleField = memo(BattleFieldImpl);
 
 interface PairProps {
   pair: AttackPair;
-  size: 'sm' | 'md';
-  cardW: number;
   highlighted: boolean;
   onClick: (() => void) | undefined;
 }
 
-const BattlePair = ({ pair, size, cardW, highlighted, onClick }: PairProps): JSX.Element => {
-  const undefended = !pair.defense;
-  const cellW = cardW + cardW * 0.22;
-  const cellH = cardW * 1.45 + cardW * 0.28;
+const BattlePair = ({ pair, highlighted, onClick }: PairProps): JSX.Element => {
+  const { w, h } = cardDims(PLAY_CARD_W);
+  const cellW = w + w * 0.22;
+  const cellH = h + w * 0.22;
   return (
     <div className="relative" style={{ width: cellW, height: cellH }}>
       <Card
         card={pair.attack}
-        size={size}
+        width={PLAY_CARD_W}
         selected={highlighted}
         onClick={onClick}
         style={{ position: 'absolute', top: 0, left: 0 }}
@@ -85,29 +65,11 @@ const BattlePair = ({ pair, size, cardW, highlighted, onClick }: PairProps): JSX
         <motion.div
           initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
           animate={{ opacity: 1, scale: 1, rotate: 14 }}
-          transition={{ duration: 0.34, ease: [0.2, 0.7, 0.2, 1] }}
-          style={{
-            position: 'absolute',
-            top: cardW * 0.28,
-            left: cardW * 0.18,
-          }}
+          transition={{ duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
+          style={{ position: 'absolute', top: 18, left: 14 }}
         >
-          <Card card={pair.defense} size={size} defended />
+          <Card card={pair.defense} width={PLAY_CARD_W} defended />
         </motion.div>
-      ) : null}
-      {undefended ? (
-        <div
-          className="pointer-events-none absolute animate-pulse-ring rounded-[12%]"
-          style={{
-            top: cardW * 0.32,
-            left: cardW * 0.16,
-            width: cardW,
-            height: cardW * 1.45,
-            background: 'rgba(251,191,36,0.06)',
-            border: '1.5px solid rgba(251,191,36,0.8)',
-            boxShadow: '0 0 16px rgba(251,191,36,0.3)',
-          }}
-        />
       ) : null}
     </div>
   );

@@ -16,37 +16,50 @@
 
   body {
     margin: 0;
-    color: theme('colors.bone.DEFAULT');
+    color: theme('colors.text.primary');
     font-family: theme('fontFamily.sans');
-    font-feature-settings: 'cv11' 1, 'ss01' 1, 'kern' 1;
+    font-feature-settings: 'kern' 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     -webkit-tap-highlight-color: transparent;
     -webkit-touch-callout: none;
-    /* Hard scroll lock — the app is a fullscreen UI; only opted-in
-       children (lobby room list) scroll, the body itself never does.
-       Eliminates the iOS rubber-band, the URL-bar wobble, and accidental
-       page-pan when dragging cards. */
     overflow: hidden;
     overscroll-behavior: none;
     position: fixed;
     inset: 0;
     width: 100%;
 
-    /* Layered backdrop: midnight base with three subtle aurora blobs that
-       drift slowly. Cool — feels like a late-night card room, not a casino. */
-    background-color: #06080f;
-    background-image:
-      radial-gradient(60% 45% at 18% 0%, rgba(255, 59, 95, 0.18) 0%, transparent 65%),
-      radial-gradient(50% 45% at 88% 12%, rgba(94, 234, 212, 0.12) 0%, transparent 65%),
-      radial-gradient(70% 60% at 50% 100%, rgba(251, 191, 36, 0.12) 0%, transparent 60%),
-      linear-gradient(180deg, #06080f 0%, #0a0e1a 100%);
-    background-attachment: fixed;
+    /* Warm-dark backdrop: top-anchored radial of the lightest brown into
+       the deeper midtone, then to the near-black base. No grain, no wood. */
+    background-color: theme('colors.bg.base');
+    background-image: radial-gradient(
+      120% 70% at 50% 0%,
+      theme('colors.bg.top') 0%,
+      theme('colors.bg.mid') 60%,
+      theme('colors.bg.base') 100%
+    );
   }
 
-  /* No content selection on UI chrome — long-press on iOS shouldn't pop
-     a copy menu over cards or buttons. Inputs and room names stay
-     selectable through the `select-text` utility where needed. */
+  /* Single soft coral halo above the play area to add warmth without weight. */
+  body::before {
+    content: '';
+    position: fixed;
+    left: 50%;
+    top: -40px;
+    width: 320px;
+    height: 220px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background: radial-gradient(closest-side, theme('colors.accent.glow'), transparent 70%);
+    filter: blur(20px);
+    z-index: 0;
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
   button,
   [role='button'],
   .no-select {
@@ -54,20 +67,16 @@
     user-select: none;
   }
 
-  /* iOS Safari zooms when input font-size is below 16 px. */
   input,
   textarea,
   select {
     font-size: 16px;
   }
 
-  /* Avoid native pinch-zoom / double-tap-zoom on the game route while still
-     letting individual buttons handle taps. */
   .touch-game {
     touch-action: manipulation;
   }
 
-  /* Tabular figures for counters that update frequently. */
   .tnum {
     font-variant-numeric: tabular-nums;
   }
@@ -95,30 +104,13 @@
     -webkit-overflow-scrolling: touch;
   }
 
-  /* Reusable glass surface — combines a tinted background with backdrop blur
-     and a subtle inner highlight stripe so it reads as frosted glass. */
-  .glass {
-    background-color: rgba(20, 27, 48, 0.55);
-    backdrop-filter: blur(20px) saturate(140%);
-    -webkit-backdrop-filter: blur(20px) saturate(140%);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.08),
-      0 12px 32px -16px rgba(0, 0, 0, 0.7);
-  }
-  .glass-strong {
-    background-color: rgba(14, 20, 36, 0.72);
-    backdrop-filter: blur(24px) saturate(150%);
-    -webkit-backdrop-filter: blur(24px) saturate(150%);
-    border: 1px solid rgba(255, 255, 255, 0.1);
-    box-shadow:
-      inset 0 1px 0 0 rgba(255, 255, 255, 0.1),
-      0 24px 48px -16px rgba(0, 0, 0, 0.85);
-  }
-  .glass-bare {
-    background-color: rgba(20, 27, 48, 0.4);
-    backdrop-filter: blur(14px) saturate(130%);
-    -webkit-backdrop-filter: blur(14px) saturate(130%);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+  /* Label text — uppercase wide-tracked, used on TRUMPF / SPIELFELD etc. */
+  .label-eyebrow {
+    font-family: theme('fontFamily.sans');
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: theme('colors.text.label');
   }
 }

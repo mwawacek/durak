@@ -3,25 +3,24 @@ interface Props {
 }
 
 const SIZES = {
-  sm: 'text-3xl',
-  md: 'text-5xl',
-  lg: 'text-6xl',
+  sm: 'text-2xl',
+  md: 'text-4xl',
+  lg: 'text-5xl',
 } as const;
 
 /**
- * Brand wordmark — Bricolage Grotesque at wide width / extra bold, with a
- * white-to-crimson gradient via background-clip. Used in the lobby header,
- * the name-entry modal, and the game-over dialog.
+ * Wordmark — serif italic-leaning display with a soft coral accent dot.
+ * Used in the lobby and the name-entry modal.
  */
 export const WordMark = ({ size = 'lg' }: Props): JSX.Element => (
   <span
-    className={`bg-clip-text font-display uppercase tracking-[-0.02em] text-transparent ${SIZES[size]}`}
-    style={{
-      WebkitBackgroundClip: 'text',
-      fontVariationSettings: '"wdth" 95, "wght" 800',
-      backgroundImage: 'linear-gradient(180deg, #fff 0%, #fafaf7 35%, #ff5572 100%)',
-    }}
+    className={`inline-flex items-baseline gap-1.5 font-serif text-text-primary ${SIZES[size]}`}
+    style={{ letterSpacing: '-0.02em', fontWeight: 500 }}
   >
-    Durak
+    <span>Durak</span>
+    <span
+      className="inline-block rounded-full bg-accent"
+      style={{ width: '0.22em', height: '0.22em' }}
+    />
   </span>
 );

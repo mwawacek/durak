@@ -1,16 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { AlertCircle } from 'lucide-react';
 import { useGameStore } from '@/store/gameStore';
 
 /**
- * Global, store-driven toast banner. Reads `lastError`, shows it for
- * `durationMs`, then clears. New errors interrupt the current one.
- *
- * "Midnight Velvet" look: glass card with a crimson left edge and a
- * small alert icon. Anchored below the top safe area.
+ * Spec'd toast: a small pill anchored about 180 px above the bottom edge,
+ * auto-dismissed. Quiet but legible.
  */
-export const Toast = ({ durationMs = 3000 }: { durationMs?: number }): JSX.Element => {
+export const Toast = ({ durationMs = 1800 }: { durationMs?: number }): JSX.Element => {
   const message = useGameStore((s) => s.lastError);
   const setError = useGameStore((s) => s.setError);
   const [visible, setVisible] = useState<string | null>(message);
@@ -30,7 +26,7 @@ export const Toast = ({ durationMs = 3000 }: { durationMs?: number }): JSX.Eleme
 
   return (
     <div
-      className="pointer-events-none fixed inset-x-3 z-50 flex justify-center safe-pt"
+      className="pointer-events-none fixed inset-x-0 bottom-[180px] z-50 flex justify-center px-4"
       role="status"
       aria-live="polite"
     >
@@ -38,17 +34,13 @@ export const Toast = ({ durationMs = 3000 }: { durationMs?: number }): JSX.Eleme
         {visible ? (
           <motion.div
             key={visible}
-            initial={{ opacity: 0, y: -8 }}
+            initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -8 }}
-            transition={{ duration: 0.18 }}
-            className="glass-strong mt-2 inline-flex max-w-md items-start gap-2.5 rounded-card px-4 py-3 text-sm text-bone shadow-raised"
-            style={{
-              borderLeft: '3px solid #ff3b5f',
-            }}
+            exit={{ opacity: 0, y: 8 }}
+            transition={{ duration: 0.16 }}
+            className="rounded-pill border border-line-mid bg-[rgba(20,18,15,0.94)] px-4 py-2 font-sans text-[11.5px] font-medium leading-none text-text-primary shadow-toast"
           >
-            <AlertCircle size={16} className="mt-0.5 shrink-0 text-crimson-400" />
-            <span className="font-sans leading-snug">{visible}</span>
+            {visible}
           </motion.div>
         ) : null}
       </AnimatePresence>

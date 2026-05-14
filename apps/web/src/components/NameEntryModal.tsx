@@ -8,11 +8,6 @@ interface Props {
   reason?: 'lobby' | 'invite';
 }
 
-/**
- * Bottom-sheet style modal — the modern mobile pattern. Stays anchored to
- * the bottom on small screens so the keyboard appears under the input
- * without pushing the layout. On wider viewports it centres.
- */
 export const NameEntryModal = ({ reason = 'lobby' }: Props): JSX.Element => {
   const setIdentity = useGameStore((s) => s.setIdentity);
   const playerId = useGameStore((s) => s.playerId);
@@ -31,22 +26,22 @@ export const NameEntryModal = ({ reason = 'lobby' }: Props): JSX.Element => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-ink-950/70 backdrop-blur-md">
+    <div className="fixed inset-0 z-50 flex flex-col bg-bg-base/85 backdrop-blur-md">
       <motion.div
         className="mt-auto w-full px-3 pb-3 safe-pb sm:mt-0 sm:m-auto sm:max-w-md sm:p-6"
         initial={{ opacity: 0, y: 80 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, ease: [0.2, 0.7, 0.2, 1] }}
+        transition={{ duration: 0.34, ease: [0.2, 0.7, 0.2, 1] }}
       >
-        <div className="glass-strong rounded-sheet p-7">
+        <div className="rounded-sheet border border-line-mid bg-bg-card p-7">
           <div className="mb-7 text-center">
-            <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
-              {reason === 'invite' ? 'Tisch · Einladung' : 'Spiel beginnt hier'}
-            </p>
+            <span className="label-eyebrow">
+              {reason === 'invite' ? 'Einladung · Tisch' : 'Willkommen'}
+            </span>
             <div className="mt-3">
               <WordMark size="md" />
             </div>
-            <p className="mt-3 max-w-[30ch] mx-auto text-sm leading-relaxed text-bone-mute">
+            <p className="mx-auto mt-3 max-w-[30ch] font-sans text-sm leading-relaxed text-text-secondary">
               {reason === 'invite'
                 ? 'Wähle deinen Namen — du bist gleich am Tisch.'
                 : 'Wähle deinen Namen. Wir merken ihn uns für die nächste Runde.'}
@@ -54,10 +49,7 @@ export const NameEntryModal = ({ reason = 'lobby' }: Props): JSX.Element => {
           </div>
 
           <form onSubmit={submit} className="flex flex-col gap-3">
-            <label
-              htmlFor={inputId}
-              className="font-display text-[10px] font-bold uppercase tracking-[0.3em] text-bone-mute"
-            >
+            <label htmlFor={inputId} className="label-eyebrow">
               Dein Name
             </label>
             <input
@@ -72,9 +64,9 @@ export const NameEntryModal = ({ reason = 'lobby' }: Props): JSX.Element => {
               autoFocus
               autoComplete="given-name"
               maxLength={32}
-              className="rounded-card border border-white/10 bg-ink-900/60 px-4 py-3.5 font-sans text-base text-bone placeholder:text-bone-ghost focus:border-crimson-400 focus:outline-none focus:ring-4 focus:ring-crimson-500/20"
+              className="rounded-card border border-line-mid bg-bg-mid px-4 py-3.5 font-sans text-base text-text-primary placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/20"
             />
-            {error ? <p className="text-sm text-crimson-400">{error}</p> : null}
+            {error ? <p className="text-sm text-accent">{error}</p> : null}
             <div className="mt-3 flex justify-center">
               <BrassButton variant="primary" type="submit" label="Beitreten" size="lg" />
             </div>

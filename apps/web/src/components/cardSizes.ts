@@ -1,17 +1,22 @@
 /**
- * Card size tokens — kept in a separate module from Card.tsx so React-Refresh
- * (Vite HMR) can hot-reload the component without invalidating the constants.
+ * Card sizes follow the spec: hand cards scale down as the hand grows,
+ * the play area uses a single fixed width, mini cards (trump indicator)
+ * are tighter. All heights are width × 1.42 (slightly squarer than the
+ * canonical 1.45 playing-card aspect — easier to read on a phone).
  */
-export const CARD_SIZES = {
-  sm: 44,
-  md: 64,
-  lg: 80,
-} as const;
+export const CARD_ASPECT = 1.42;
 
-export type CardSize = keyof typeof CARD_SIZES;
-
-/** Width × height for a given size token (1.45 aspect ratio). */
-export const cardDims = (size: CardSize = 'md'): { w: number; h: number } => {
-  const w = CARD_SIZES[size];
-  return { w, h: Math.round(w * 1.45) };
+export const handCardWidth = (handSize: number): number => {
+  if (handSize <= 6) return 56;
+  if (handSize <= 8) return 50;
+  return 46;
 };
+
+export const PLAY_CARD_W = 62;
+export const MINI_CARD_W = 32;
+
+/** Width × height for an explicit card width. */
+export const cardDims = (width: number): { w: number; h: number } => ({
+  w: width,
+  h: Math.round(width * CARD_ASPECT),
+});

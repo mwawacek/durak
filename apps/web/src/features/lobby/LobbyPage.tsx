@@ -30,8 +30,7 @@ export const LobbyPage = (): JSX.Element => {
   const openRooms = rooms.filter((r) => r.status === 'lobby' && r.id !== myRoom?.id);
 
   useEffect(() => {
-    if (!myRoom) return;
-    if (myRoom.status === 'in-game') {
+    if (myRoom?.status === 'in-game') {
       setCurrentRoom(myRoom.id);
       navigate(`/r/${myRoom.id}`, { replace: true });
     }
@@ -61,30 +60,24 @@ export const LobbyPage = (): JSX.Element => {
   };
 
   return (
-    <div className="relative flex min-h-dvh flex-col text-bone safe-pt safe-pb">
-      <header className="flex items-end justify-between gap-3 px-5 pt-10">
-        <div>
-          <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
-            Hallo, {playerName ?? '…'}
-          </p>
-          <div className="mt-2">
-            <WordMark size="md" />
-          </div>
-          <p className="mt-1 font-sans text-sm text-bone-mute">
-            Wähle einen Tisch oder eröffne deinen eigenen.
-          </p>
+    <div className="relative flex h-dvh flex-col text-text-primary safe-pt safe-pb">
+      <header className="px-5 pt-10">
+        <span className="label-eyebrow">Hallo, {playerName ?? '…'}</span>
+        <div className="mt-2">
+          <WordMark size="md" />
         </div>
+        <p className="mt-1 font-sans text-sm text-text-secondary">
+          Wähle einen Tisch oder eröffne deinen eigenen.
+        </p>
       </header>
 
-      <main className="scroll-touch flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-32 pt-7">
+      <main className="scroll-touch flex flex-1 flex-col gap-6 overflow-y-auto px-5 pb-28 pt-7">
         {myRoom ? <MyRoomPanel room={myRoom} /> : null}
 
         <section className="flex flex-col gap-3">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
-              Offene Tische
-            </h2>
-            <span className="font-mono text-[10px] text-bone-ghost">
+            <h2 className="label-eyebrow">Offene Tische</h2>
+            <span className="font-mono text-[10px] text-text-tertiary tnum">
               {openRooms.length}
             </span>
           </div>
@@ -92,7 +85,6 @@ export const LobbyPage = (): JSX.Element => {
         </section>
       </main>
 
-      {/* Floating "create" action — modern bottom CTA. Above safe area. */}
       <div className="pointer-events-none fixed inset-x-0 bottom-0 z-30 flex justify-center px-5 pb-6 safe-pb">
         <div className="pointer-events-auto">
           <BrassButton

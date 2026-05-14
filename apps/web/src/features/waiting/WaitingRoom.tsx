@@ -36,77 +36,65 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
       : `/r/${room.id}`;
 
   return (
-    <main className="flex min-h-dvh flex-col text-bone safe-pt safe-pb">
+    <main className="flex h-dvh flex-col text-text-primary safe-pt safe-pb">
       <header className="px-5 pt-10">
-        <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
-          Wartebereich
-        </p>
-        <h1 className="mt-2 truncate font-display text-3xl leading-tight text-bone">
+        <span className="label-eyebrow">Wartebereich</span>
+        <h1
+          className="mt-2 truncate font-serif text-3xl leading-tight text-text-primary"
+          style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
+        >
           {room.name}
         </h1>
-        <div className="mt-3 inline-flex items-center gap-2 rounded-pill bg-white/5 px-3 py-1.5">
+        <div className="mt-3 inline-flex items-center gap-2 rounded-pill border border-line-subtle bg-white/[0.03] px-3 py-1.5">
           <span
             className={cn(
               'h-1.5 w-1.5 rounded-full',
-              room.players.length >= MIN_PLAYERS
-                ? 'bg-mint-400 shadow-[0_0_8px_rgba(94,234,212,0.6)]'
-                : 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.4)]',
+              room.players.length >= MIN_PLAYERS ? 'bg-accent' : 'bg-text-tertiary',
             )}
           />
-          <span className="font-mono text-[11px] text-bone-mute tnum">
+          <span className="font-mono text-[11px] text-text-secondary tnum">
             {room.players.length}/{room.maxPlayers}
           </span>
         </div>
       </header>
 
       <section className="mt-7 flex flex-col gap-3 px-5">
-        <h2 className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
-          Am Tisch
-        </h2>
+        <h2 className="label-eyebrow">Am Tisch</h2>
         <ul className="flex flex-col gap-2.5">
           {room.players.map((p, i) => (
             <motion.li
               key={p.id}
-              className="glass flex items-center gap-3 rounded-card px-4 py-3.5"
-              initial={{ opacity: 0, y: 12 }}
+              className="flex items-center gap-3 rounded-panel border border-line-subtle bg-bg-card/60 px-4 py-3.5"
+              initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: i * 0.06, duration: 0.32, ease: [0.2, 0.7, 0.2, 1] }}
+              transition={{ delay: i * 0.05, duration: 0.28, ease: [0.2, 0.7, 0.2, 1] }}
             >
               <span
                 className={cn(
                   'h-2 w-2 rounded-full',
-                  p.isConnected
-                    ? 'bg-mint-400 shadow-[0_0_8px_rgba(94,234,212,0.5)]'
-                    : 'bg-bone-ghost',
+                  p.isConnected ? 'bg-accent' : 'bg-text-tertiary',
                 )}
               />
-              <span className="flex-1 truncate font-sans text-base text-bone">{p.name}</span>
-              {p.id === room.ownerId ? (
-                <span className="rounded-pill bg-amber-400/15 px-2 py-0.5 font-display text-[9px] font-bold uppercase tracking-[0.2em] text-amber-300">
-                  Host
-                </span>
-              ) : null}
-              {p.id === playerId ? (
-                <span className="font-display text-[9px] font-bold uppercase tracking-[0.2em] text-bone-mute">
-                  Du
-                </span>
-              ) : null}
+              <span className="flex-1 truncate font-sans text-[15px] text-text-primary">
+                {p.name}
+              </span>
+              {p.id === room.ownerId ? <span className="label-eyebrow">Host</span> : null}
+              {p.id === playerId ? <span className="label-eyebrow">Du</span> : null}
             </motion.li>
           ))}
         </ul>
 
         {room.players.length < MIN_PLAYERS ? (
-          <p className="mt-2 font-sans text-sm text-bone-mute">
+          <p className="mt-2 font-sans text-sm text-text-secondary">
             Mindestens {MIN_PLAYERS} Spieler nötig. Lade Freunde ein.
           </p>
         ) : !isHost ? (
-          <p className="mt-2 font-sans text-sm italic text-bone-mute">
+          <p className="mt-2 font-sans text-sm italic text-text-secondary">
             Warte, bis der Host startet …
           </p>
         ) : null}
       </section>
 
-      {/* Bottom action zone — sticky on mobile */}
       <div className="mt-auto flex flex-wrap items-center justify-between gap-2 px-5 pt-8 pb-2">
         <ShareButton url={shareUrl} />
         <div className="flex gap-2">

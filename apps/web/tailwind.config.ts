@@ -1,9 +1,8 @@
 import type { Config } from 'tailwindcss';
 
 /**
- * Design tokens — "Midnight Velvet": late-night card-room atmosphere.
- * Deep navy base, electric crimson and warm amber accents, glassy surfaces.
- * Mirrored (subset) in src/theme/tokens.ts for inline SVG / inline style.
+ * "Durak / Bito" design tokens — warm-dark with a single warm-coral accent.
+ * No casino felt, no wood, no glassmorphism. Clean zones, serif card faces.
  */
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
@@ -11,124 +10,74 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        // App backdrop scale — cool, deep, with subtle blue cast
-        ink: {
-          950: '#06080f',
-          900: '#0a0e1a',
-          800: '#0e1424',
-          700: '#141b30',
-          600: '#1b2540',
-          500: '#243054',
+        bg: {
+          base: '#0a0907',
+          mid: '#100e0b',
+          top: '#1b1815',
+          card: '#1a1714',
         },
-        // Glass surfaces use white at low opacity directly via tailwind's
-        // /5, /10, /15 modifiers — no token needed.
-
-        // Felt for the game table — emerald shifted darker
-        felt: {
-          dark: '#031a1a',
-          mid: '#072a2a',
-          DEFAULT: '#0d3b3b',
-          light: '#0f4747',
+        surface: {
+          card: '#fbfaf7',
+          panel: 'rgba(255,255,255,0.035)',
+          panelStrong: 'rgba(255,255,255,0.06)',
         },
-
-        // Electric crimson — primary brand colour, attacker, danger
-        crimson: {
-          50: '#fff1f4',
-          100: '#ffd9e0',
-          200: '#ffadbc',
-          400: '#ff5572',
-          500: '#ff3b5f',
-          600: '#e63956',
-          700: '#b8243e',
-          800: '#7c1729',
+        line: {
+          subtle: 'rgba(255,255,255,0.06)',
+          mid: 'rgba(255,255,255,0.10)',
+          strong: 'rgba(255,255,255,0.18)',
         },
-
-        // Warm amber — secondary accent, gold-leaf moments, host badge
-        amber: {
-          100: '#fef3c7',
-          300: '#fcd34d',
-          400: '#fbbf24',
-          500: '#f59e0b',
-          600: '#d97706',
+        text: {
+          primary: '#fbfaf7',
+          secondary: 'rgba(255,255,255,0.5)',
+          tertiary: 'rgba(255,255,255,0.32)',
+          label: 'rgba(255,255,255,0.42)',
         },
-
-        // Mint — defender / connected / success
-        mint: {
-          300: '#6ee7b7',
-          400: '#5eead4',
-          500: '#34d399',
-          600: '#10b981',
+        accent: {
+          DEFAULT: '#ff6f5e',
+          light: '#ff8a7a',
+          deep: '#ff5a48',
+          glow: 'rgba(255,111,94,0.18)',
+          ring: 'rgba(255,111,94,0.45)',
+          haze: 'rgba(255,111,94,0.08)',
+          soft: 'rgba(255,111,94,0.12)',
         },
-
-        // Card / text light tones
-        bone: {
-          DEFAULT: '#fafaf7',
-          dim: '#e7e5e0',
-          mute: 'rgba(250,250,247,0.65)',
-          ghost: 'rgba(250,250,247,0.4)',
-        },
-
-        // Card colours
-        cardFace: {
-          DEFAULT: '#fafaf7',
-          shadow: '#eceae3',
-        },
-        cardSuit: {
-          red: '#dc2626',
-          ink: '#0f172a',
+        suit: {
+          red: '#e23b46',
+          black: '#15161a',
         },
       },
       fontFamily: {
-        display: ['"Bricolage Grotesque"', 'system-ui', 'sans-serif'],
-        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['"Geist Mono"', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        serif: ['ui-serif', 'Georgia', 'Cambria', '"Times New Roman"', 'serif'],
+        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       borderRadius: {
-        card: '0.875rem',
+        card: '0.5rem',
+        panel: '1.125rem',
         pill: '9999px',
-        sheet: '1.5rem',
+        sheet: '1.25rem',
       },
       boxShadow: {
-        card: '0 1px 1px rgba(0,0,0,0.04), 0 6px 24px -8px rgba(0,0,0,0.6)',
-        raised: '0 4px 6px rgba(0,0,0,0.2), 0 24px 48px -16px rgba(0,0,0,0.7)',
-        crimson: '0 8px 24px -8px rgba(255,59,95,0.5)',
-        amber: '0 8px 24px -8px rgba(251,191,36,0.5)',
-        glass: 'inset 0 1px 0 0 rgba(255,255,255,0.08), 0 1px 2px rgba(0,0,0,0.4), 0 12px 32px -12px rgba(0,0,0,0.6)',
-        glassRaised: 'inset 0 1px 0 0 rgba(255,255,255,0.12), 0 6px 12px rgba(0,0,0,0.3), 0 24px 48px -16px rgba(0,0,0,0.8)',
+        card: '0 1px 0 rgba(255,255,255,0.6) inset, 0 6px 14px -6px rgba(0,0,0,0.45)',
+        cardSelected:
+          '0 14px 30px -10px rgba(255,111,94,0.5), 0 2px 6px rgba(0,0,0,0.3)',
+        cta: '0 10px 24px -10px rgba(255,90,72,0.6), inset 0 0 0 0.5px rgba(255,255,255,0.18)',
+        panel: 'inset 0 1px 0 rgba(255,255,255,0.04)',
+        toast: '0 10px 30px rgba(0,0,0,0.5)',
       },
       keyframes: {
-        'pulse-ring': {
-          '0%, 100%': { opacity: '0.45', transform: 'scale(1)' },
-          '50%': { opacity: '0.9', transform: 'scale(1.04)' },
-        },
         'fade-up': {
-          '0%': { opacity: '0', transform: 'translateY(12px)' },
+          '0%': { opacity: '0', transform: 'translateY(8px)' },
           '100%': { opacity: '1', transform: 'translateY(0)' },
         },
-        'aurora-pan': {
-          '0%, 100%': { transform: 'translate3d(0%, 0%, 0)' },
-          '50%': { transform: 'translate3d(2%, -1%, 0)' },
-        },
-        'sheen': {
-          '0%': { backgroundPosition: '-200% 0' },
-          '100%': { backgroundPosition: '200% 0' },
+        'pulse-ring': {
+          '0%, 100%': { opacity: '0.55' },
+          '50%': { opacity: '1' },
         },
       },
       animation: {
+        'fade-up': 'fade-up 240ms cubic-bezier(.2,.7,.2,1) both',
         'pulse-ring': 'pulse-ring 1.6s ease-in-out infinite',
-        'fade-up': 'fade-up 320ms cubic-bezier(0.2, 0.7, 0.2, 1) both',
-        'aurora-pan': 'aurora-pan 12s ease-in-out infinite',
-        'sheen': 'sheen 3.5s ease-in-out infinite',
-      },
-      backgroundImage: {
-        // Vibrant button gradient (subtle vertical wash)
-        'crimson-flat':
-          'linear-gradient(180deg, #ff5572 0%, #ff3b5f 50%, #e63956 100%)',
-        'amber-flat':
-          'linear-gradient(180deg, #fde68a 0%, #fbbf24 50%, #f59e0b 100%)',
-        // Aurora behind the body — three blurred blobs
-        'aurora':
-          'radial-gradient(50% 35% at 12% 8%, rgba(255,59,95,0.20) 0%, transparent 65%), radial-gradient(45% 40% at 88% 18%, rgba(94,234,212,0.14) 0%, transparent 65%), radial-gradient(60% 50% at 50% 95%, rgba(251,191,36,0.13) 0%, transparent 60%)',
       },
     },
   },

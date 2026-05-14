@@ -2,17 +2,15 @@ import { Link } from 'react-router-dom';
 import { BrassButton } from '@/components/BrassButton';
 
 export const NotFoundRoute = (): JSX.Element => (
-  <main className="flex min-h-dvh flex-col items-center justify-center gap-5 px-6 text-center text-bone safe-pt safe-pb">
-    <p className="font-display text-[10px] font-bold uppercase tracking-[0.4em] text-bone-mute">
-      404
-    </p>
+  <main className="flex h-dvh flex-col items-center justify-center gap-3 px-6 text-center text-text-primary safe-pt safe-pb">
+    <span className="label-eyebrow">404</span>
     <h1
-      className="font-display text-4xl leading-tight text-bone"
-      style={{ fontVariationSettings: '"wdth" 95, "wght" 800' }}
+      className="font-serif text-3xl text-text-primary"
+      style={{ fontWeight: 500, letterSpacing: '-0.015em' }}
     >
-      Hier ist nichts
+      Seite nicht gefunden
     </h1>
-    <p className="max-w-[32ch] font-sans text-sm text-bone-mute">
+    <p className="max-w-[32ch] font-sans text-sm text-text-secondary">
       Vielleicht ist der Tisch schon zu Ende. Schau in der Lobby vorbei.
     </p>
     <Link to="/" className="mt-2">
