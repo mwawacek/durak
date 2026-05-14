@@ -10,6 +10,12 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(dirname, 'src'),
+      // The shared package is published as CommonJS (the backend needs CJS).
+      // Vite / Rollup can't analyse `__exportStar(require(...))` for named
+      // imports, so we point the web bundle at the TS source directly.
+      // Typecheck still resolves through `@durak/shared`'s package.json types
+      // field, so contracts stay strict.
+      '@durak/shared': path.resolve(dirname, '../../packages/shared/src/index.ts'),
     },
   },
   server: {

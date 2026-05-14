@@ -1,40 +1,96 @@
 import { Link, useParams } from 'react-router-dom';
 import { useGameStore } from '@/store/gameStore';
+import { useRoomMembership } from '@/hooks/useRoomMembership';
 import { NameEntryModal } from '@/components/NameEntryModal';
 import { BrassButton } from '@/components/BrassButton';
+import { WaitingRoom } from '@/features/waiting/WaitingRoom';
+import { GameTable } from '@/features/game/GameTable';
 
 /**
- * /r/:roomId stub.
+ * /r/:roomId — entry point for shareable room URLs.
  *
- * The full lobby-/in-game-switch logic and the WaitingRoom + GameTable
- * components arrive in later steps. For now this route renders a placeholder
- * so the router is wired end-to-end and deep-link entry (with a name modal
- * for invited friends) already works.
+ *   - No name in store → blocking NameEntryModal.
+ *   - Name + roomId, but socket not connected yet → "Verbinde…" placeholder.
+ *   - Connected and joined, room.status === 'lobby' → WaitingRoom.
+ *   - Connected and joined, room.status === 'in-game' → GameTable.
+ *   - Connected, room exists but I'm not in it and it's already in-game →
+ *     "Spiel läuft bereits" message with a link back to the lobby.
+ *   - Connected and room not found → "Raum nicht gefunden".
  */
 export const RoomRoute = (): JSX.Element => {
   const { roomId } = useParams();
   const playerName = useGameStore((s) => s.playerName);
+  const playerId = useGameStore((s) => s.playerId);
+  const connected = useGameStore((s) => s.connected);
+  const rooms = useGameStore((s) => s.rooms);
+  const game = useGameStore((s) => s.game);
+
+  useRoomMembership(roomId);
 
   if (!playerName) return <NameEntryModal reason="invite" />;
-  if (!roomId) {
+  if (!roomId) return <ErrorScreen title="Kein Raum angegeben" />;
+
+  if (!connected) {
+    return <PlaceholderScreen title="Verbinde…" sub="Server wird kontaktiert" />;
+  }
+
+  const room = rooms.find((r) => r.id === roomId);
+
+  if (!room) {
     return (
-      <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-6 text-center text-cream">
-        <h1 className="font-serif text-2xl italic">Kein Raum angegeben</h1>
-        <Link to="/">
-          <BrassButton variant="primary" label="Zur Lobby" />
-        </Link>
-      </main>
+      <PlaceholderScreen
+        title="Raum nicht gefunden"
+        sub="Vielleicht ist er schon zu Ende — versuche es in der Lobby."
+      />
     );
   }
 
-  return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-6 text-center text-cream safe-pt safe-pb">
-      <p className="font-serif text-[10px] uppercase tracking-[0.3em] text-gold-light">Raum</p>
-      <h1 className="font-serif text-xl italic text-cream">{roomId}</h1>
-      <p className="text-sm text-cream-dim">Wartebereich folgt im nächsten Schritt.</p>
-      <Link to="/">
-        <BrassButton variant="secondary" label="Zur Lobby" />
-      </Link>
-    </main>
-  );
+  const iAmInRoom = room.players.some((p) => p.id === playerId);
+
+  if (!iAmInRoom && room.status !== 'lobby') {
+    return (
+      <ErrorScreen
+        title="Spiel läuft bereits"
+        body="Du kannst nicht in eine laufende Partie einsteigen."
+      />
+    );
+  }
+
+  if (!iAmInRoom) {
+    // We're trying to join — useRoomMembership has fired. Show a soft loader.
+    return <PlaceholderScreen title="Trete dem Tisch bei…" sub={room.name} />;
+  }
+
+  if (room.status === 'lobby') {
+    return <WaitingRoom room={room} />;
+  }
+
+  if (!game || game.roomId !== roomId) {
+    return <PlaceholderScreen title="Warte auf Spielstart…" sub={room.name} />;
+  }
+
+  return <GameTable game={game} roomId={roomId} />;
 };
+
+interface ScreenProps {
+  title: string;
+  sub?: string;
+  body?: string;
+}
+
+const PlaceholderScreen = ({ title, sub }: ScreenProps): JSX.Element => (
+  <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-bg px-6 text-center text-cream safe-pt safe-pb">
+    <h1 className="font-serif text-2xl italic">{title}</h1>
+    {sub ? <p className="text-sm text-cream-dim">{sub}</p> : null}
+  </main>
+);
+
+const ErrorScreen = ({ title, body }: ScreenProps): JSX.Element => (
+  <main className="flex min-h-dvh flex-col items-center justify-center gap-4 bg-bg px-6 text-center text-cream safe-pt safe-pb">
+    <h1 className="font-serif text-2xl italic">{title}</h1>
+    {body ? <p className="text-sm text-cream-dim">{body}</p> : null}
+    <Link to="/">
+      <BrassButton variant="primary" label="Zur Lobby" />
+    </Link>
+  </main>
+);
