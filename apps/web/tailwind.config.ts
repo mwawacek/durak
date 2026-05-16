@@ -28,9 +28,9 @@ const config: Config = {
         },
         text: {
           primary: '#fbfaf7',
-          secondary: 'rgba(255,255,255,0.5)',
-          tertiary: 'rgba(255,255,255,0.32)',
-          label: 'rgba(255,255,255,0.42)',
+          secondary: 'rgba(255,255,255,0.6)',
+          tertiary: 'rgba(255,255,255,0.5)',
+          label: 'rgba(255,255,255,0.55)',
         },
         accent: {
           DEFAULT: '#ff6f5e',

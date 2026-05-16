@@ -99,13 +99,22 @@ const CardImpl = ({
   );
 
   if (!onClick) return cardBox;
+  const ariaLabel = card
+    ? `${RANK_NAME_DE[card.rank]} ${SUIT_NAME_DE[card.suit]}${
+        isTrump ? ' (Trumpf)' : ''
+      }${!playable ? ' (nicht spielbar)' : ''}`
+    : faceDown
+      ? 'verdeckte Karte'
+      : undefined;
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="block bg-transparent p-0 active:scale-[0.97]"
-      aria-label={card ? `${card.rank} ${card.suit}` : faceDown ? 'verdeckte Karte' : undefined}
+      aria-label={ariaLabel}
+      aria-disabled={!playable || undefined}
+      tabIndex={playable ? 0 : -1}
+      className="block rounded-card bg-transparent p-0 active:scale-[0.97] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
     >
       {cardBox}
     </button>
@@ -128,6 +137,29 @@ const RANK_LABEL: Record<Rank, string> = {
   Q: 'D',
   K: 'K',
   A: 'A',
+};
+
+const RANK_NAME_DE: Record<Rank, string> = {
+  '2': '2',
+  '3': '3',
+  '4': '4',
+  '5': '5',
+  '6': '6',
+  '7': '7',
+  '8': '8',
+  '9': '9',
+  '10': '10',
+  J: 'Bube',
+  Q: 'Dame',
+  K: 'König',
+  A: 'Ass',
+};
+
+const SUIT_NAME_DE: Record<Suit, string> = {
+  hearts: 'Herz',
+  diamonds: 'Karo',
+  spades: 'Pik',
+  clubs: 'Kreuz',
 };
 
 interface FaceProps {
