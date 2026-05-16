@@ -13,7 +13,13 @@
  *   node tools/bot.mjs --host http://192.168.1.23:3010
  */
 import { io } from '../node_modules/socket.io-client/build/esm/index.js';
-import { SOCKET_EVENTS, RANK_ORDER, beats, ranksOnTable } from '../packages/shared/dist/index.js';
+import {
+  SOCKET_EVENTS,
+  RANK_ORDER,
+  beats,
+  canPileOn,
+  MAX_TABLE_PAIRS,
+} from '../packages/shared/dist/index.js';
 
 const args = process.argv.slice(2);
 const flagIdx = args.findIndex((a) => a.startsWith('--'));
@@ -69,9 +75,14 @@ const pickMove = (game, myId, roomId) => {
 
   // Bito-Bestätigung (kann sowohl Hauptangreifer als auch Nachbar sein):
   // Wenn ich noch eine günstige passende Karte habe → nachlegen, sonst bestätigen.
+  // canPileOn() respektiert MAX_TABLE_PAIRS und die undefendedCount-Kapazität —
+  // sonst würde die Engine den Wurf ablehnen und das Log floodet mit "move rejected".
   if (needsMyConfirmation) {
-    const tableRanks = ranksOnTable(game.table);
-    const pileable = game.you.hand.filter((c) => tableRanks.has(c.rank));
+    const defender = game.players.find((p) => p.id === game.defenderId);
+    const defenderHandCount = defender?.handCount ?? 0;
+    const pileable = game.you.hand.filter((c) =>
+      canPileOn(c, game.table, defenderHandCount, MAX_TABLE_PAIRS),
+    );
     const cheap = cheapestNonTrumpFirst(pileable, game.trumpSuit).find(
       (c) => c.suit !== game.trumpSuit,
     );

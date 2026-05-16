@@ -25,8 +25,6 @@ const resolveApiUrl = (): string => {
   return window.location.origin;
 };
 
-export const getApiUrl = resolveApiUrl;
-
 let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {

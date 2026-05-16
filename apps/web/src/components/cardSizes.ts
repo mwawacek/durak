@@ -13,7 +13,6 @@ export const handCardWidth = (handSize: number): number => {
 };
 
 export const PLAY_CARD_W = 62;
-export const MINI_CARD_W = 32;
 
 /** Width × height for an explicit card width. */
 export const cardDims = (width: number): { w: number; h: number } => ({

@@ -85,7 +85,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       });
     }
 
-    // Grace period: if the player doesn't reconnect, drop them.
+    // Grace period: if the player doesn't reconnect, drop them. Clearing
+    // any existing timer first avoids leaked handles when a second socket
+    // for the same player drops before the first grace period elapsed.
+    const existing = this.disconnectTimers.get(player.id);
+    if (existing) clearTimeout(existing);
     const timer = setTimeout(() => {
       this.finalizeDisconnect(player.id);
       this.disconnectTimers.delete(player.id);
@@ -424,8 +428,14 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (err instanceof RoomError || err instanceof GameRuleError) {
       return { ok: false, error: { code: err.code, message: err.message } };
     }
-    const message = err instanceof Error ? err.message : 'Unknown error';
-    this.logger.error(message, err instanceof Error ? err.stack : undefined);
-    return { ok: false, error: { code: ERROR_CODES.INTERNAL_ERROR, message } };
+    const rawMessage = err instanceof Error ? err.message : String(err);
+    this.logger.error(rawMessage, err instanceof Error ? err.stack : undefined);
+    // Sanitise: never forward a raw thrown message to the client — could leak
+    // DB column names, file paths, or other server internals. Typed engine
+    // errors (GameRuleError / RoomError) take the early-return branch above.
+    return {
+      ok: false,
+      error: { code: ERROR_CODES.INTERNAL_ERROR, message: 'Interner Fehler' },
+    };
   }
 }

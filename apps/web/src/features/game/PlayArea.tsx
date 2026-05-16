@@ -3,10 +3,10 @@ import { cn } from '@/lib/cn';
 
 interface Props {
   children: ReactNode;
-  /** When a hand card is selected, the panel becomes a dashed accent drop-zone. */
+  /** When a hand card is selected, the panel shows a dashed accent outline
+   *  as a drop-target hint. The actual commit happens via tapping a candidate
+   *  attack card in the BattleField, not via the panel itself. */
   awaitingDrop?: boolean;
-  /** Tapping inside the panel resolves the selected card. */
-  onTap?: () => void;
   empty?: boolean;
 }
 
@@ -15,7 +15,7 @@ interface Props {
  * radial highlight from the top adds atmosphere; when the player has a
  * card selected, a dashed accent outline marks the drop target.
  */
-export const PlayArea = ({ children, awaitingDrop, onTap, empty }: Props): JSX.Element => (
+export const PlayArea = ({ children, awaitingDrop, empty }: Props): JSX.Element => (
   <div
     className={cn(
       'relative mx-4 mt-3.5 min-h-[180px] rounded-panel border border-line-subtle p-4 shadow-panel',
@@ -25,7 +25,6 @@ export const PlayArea = ({ children, awaitingDrop, onTap, empty }: Props): JSX.E
       backgroundImage:
         'radial-gradient(120% 80% at 50% 30%, rgba(255,255,255,0.035) 0%, transparent 100%)',
     }}
-    onClick={onTap}
   >
     <span className="label-eyebrow absolute left-4 top-3">Spielfeld</span>
 

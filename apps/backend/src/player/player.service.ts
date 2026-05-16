@@ -88,14 +88,6 @@ export class PlayerService {
     }
   }
 
-  handleDisconnect(socketId: string): string | null {
-    const playerId = this.socketToPlayer.get(socketId);
-    if (!playerId) return null;
-    this.socketToPlayer.delete(socketId);
-    // keep onlinePlayers entry for reconnect grace period; caller decides when to drop
-    return playerId;
-  }
-
   remove(playerId: string): void {
     const p = this.onlinePlayers.get(playerId);
     if (p) {

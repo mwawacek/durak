@@ -24,7 +24,6 @@ export const PlayerListItem = ({
     variant === 'panel'
       ? 'flex items-center gap-3 rounded-panel border border-line-subtle bg-bg-card/60 px-4 py-3.5'
       : 'flex items-center gap-2.5';
-  const nameSize = variant === 'panel' ? 'text-[15px]' : 'text-[15px]';
   return (
     <div className={wrapperClass}>
       <span
@@ -33,8 +32,12 @@ export const PlayerListItem = ({
           variant === 'panel' && 'h-2 w-2',
           player.isConnected ? 'bg-accent' : 'bg-text-tertiary',
         )}
+        aria-hidden
       />
-      <span className={cn('flex-1 truncate font-sans text-text-primary', nameSize)}>
+      <span className="sr-only">
+        {player.isConnected ? 'verbunden' : 'offline'}
+      </span>
+      <span className="flex-1 truncate font-sans text-[15px] text-text-primary">
         {player.name}
       </span>
       {isOwner ? <span className="label-eyebrow">Host</span> : null}

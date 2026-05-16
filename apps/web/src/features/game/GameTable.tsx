@@ -186,15 +186,6 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     setSelection(redirectMode ? NO_SELECTION : { kind: 'redirect' });
   };
 
-  // The attacker plays via the hand directly; this handler exists only so a
-  // defender with a single legal target can commit by tapping the panel.
-  const handlePlayAreaTap = async () => {
-    if (!isDefender || !selectedCard) return;
-    if (candidateAttackIds.size !== 1) return;
-    const [only] = candidateAttackIds;
-    if (only) await playDefense(only, selectedCard);
-  };
-
   const headline = buildHeadline({
     isAttacker,
     isDefender,
@@ -231,11 +222,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     <div className="relative flex h-dvh w-full flex-col overflow-hidden text-text-primary touch-game safe-pt safe-pb safe-pl safe-pr">
       <OpponentRow seats={seats} />
 
-      <PlayArea
-        awaitingDrop={!!selectedCard}
-        empty={game.table.length === 0}
-        onTap={handlePlayAreaTap}
-      >
+      <PlayArea awaitingDrop={!!selectedCard} empty={game.table.length === 0}>
         <BattleField
           pairs={game.table}
           onAttackPress={isDefender ? handleAttackTap : undefined}

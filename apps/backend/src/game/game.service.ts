@@ -122,10 +122,4 @@ export class GameService {
   snapshot(roomId: string): GameStateInternal | null {
     return this.games.get(roomId) ?? null;
   }
-
-  /** Debug dump (no hands). */
-  publicSnapshot(roomId: string) {
-    const s = this.games.get(roomId);
-    return s ? projectPublic(s) : null;
-  }
 }
