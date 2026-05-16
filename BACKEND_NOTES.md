@@ -34,46 +34,48 @@ Remaining audit findings after `npm audit fix`:
 - 2 moderate (esbuild via Vite, dev-server-only). Fix needs Vite 6 major
   upgrade — deferred.
 
-## 2026-05-15 — code-review deferred follow-ups
+## 2026-05-16 — deferred follow-ups landed
 
-Identified during the 2026-05-15 full-codebase review but skipped to keep
-this PR atomic. None are urgent.
+All six items from the 2026-05-15 deferred list shipped today. Plan was
+written to `docs/superpowers/plans/2026-05-16-backend-deferred-cleanups.md`
+and executed task-by-task with a subagent per task.
 
-1. **Class-validator DTOs for socket payloads.** Every `@MessageBody()`
-   in `apps/backend/src/gateways/game.gateway.ts` is typed as a TS
-   interface (`JoinLobbyPayload`, `CreateRoomPayload`, …). The global
-   `ValidationPipe({whitelist, forbidNonWhitelisted, transform})` in
-   `main.ts` is configured but does nothing at runtime because TS
-   interfaces erase. Only the ad-hoc `requireRoomId` / `requireCard`
-   helpers (gateway:382-403) catch malformed input. Convert each payload
-   shape to a class in `apps/backend/src/gateways/dto/` with
-   class-validator decorators (`@IsString`, `@IsUUID`, `@ValidateNested`,
-   `@Type(() => CardDto)`); reference them from `@MessageBody`; delete
-   the bespoke require-helpers afterwards.
+| # | Item | Commit |
+|---|---|---|
+| 1 | `SOCKET_ACK_TIMEOUT_MS` in `@durak/shared`, consumed by web + bot | `1ff6cc2` |
+| 2 | `setConnected` helper folds `markDisconnected` / `markConnected` | `96d41c4` |
+| 3 | `eligibleAttackerIndices` shared between pending + pileOnCapable | `459e14a` |
+| 4 | `takeCards` delegates to `commitTake` (no drift) | `9868881` |
+| 5 | `afterGameMutation` unifies gateway post-mutation broadcasts | `3a1077d` |
+| 6 | Class-validator DTOs validate every socket payload at runtime | `6bc94b4` |
 
-2. **`commitTake` reuse in `takeCards`.** `game.engine.ts:155-164` and
-   the exported `takeCards` (`:432-450`) both push attack+defense into
-   the defender's hand, clear the table, refill, and rotate. Wrap
-   `takeCards` around `commitTake` so the two paths can't drift.
+Notes on Task 6 (DTOs):
+- A naive "swap interface for class on `@MessageBody`" doesn't work in
+  NestJS 11's WS context: the global `ValidationPipe`'s
+  `BadRequestException` gets caught by `WsProxy` and routed to the
+  exception filter, which emits an `exception` event but never fires the
+  ack. The client times out instead of getting a structured error.
+- Fix: gateway now calls `this.validate(Dto, raw)` inside each `tryAck`
+  block. The pipe runs synchronously, throws on bad input, and the
+  resulting `BadRequestException` is converted to a `GameRuleError`
+  (`ERROR_CODES.INVALID_PAYLOAD`) before reaching `toAckError`. Bad
+  payloads now ack with `{ ok: false, error: { code, message } }`.
+- `main.ts` keeps `app.useGlobalPipes(new ValidationPipe(...))` — still
+  useful for future HTTP routes; not load-bearing for the gateway.
 
-3. **Extract `eligibleAttackerIndices`.** `computePendingIndices`
-   (engine:84-100) and `pileOnCapableIndices` (engine:128-141) share the
-   exact iteration: skip-confirmed, skip-finished, has-pile-on-card. Only
-   the up-front `tableFullyDefended` guard differs. Extract the common
-   loop into a private `eligibleAttackerIndices(s): Set<number>`.
+Notes on Task 6 (cont.):
+- `RECONNECT_GRACE_MS` was not moved to shared because no consumer
+  outside the gateway needs it; the web client has its own
+  reconnection-attempt budget on `socket.io-client`. Keeping
+  workspace-local.
 
-4. **`setConnected(state, playerId, isConnected: boolean)`.** Today
-   `markDisconnected` and `markConnected` (engine:523-535) are mirror
-   functions differing by one boolean.
+Remaining open items (lower-priority polish, not blocking):
+- Landscape "rotate device" hint (web).
+- iPad max-width container (web).
+- iOS visualViewport keyboard handling (web).
+- ConnectionBadge "retry" button after N failed reconnects (web).
+- Cross-package symbol moves (`RANK_LABEL`, `SUIT_NAME_DE`,
+  `SUIT_GLYPH`) — debatable, low value while only the web renders cards.
 
-5. **`afterGameMutation` gateway helper.** The five gameplay handlers in
-   the gateway share the `broadcastGameState` + `emitRoundStarted` +
-   `maybeFinishGame` post-mutation flow. A single
-   `private afterGameMutation(roomId, state, { roundStarted })` helper
-   would centralise the contract.
-
-6. **Move `RECONNECT_GRACE_MS` (and `SOCKET_ACK_TIMEOUT_MS`) into
-   `@durak/shared`.** Today they live in `game.gateway.ts` and
-   `apps/web/src/services/socket.ts` / `tools/bot.mjs` respectively with
-   independent values. Moving them to shared lets engine, web, and bot
-   agree.
+Remaining `npm audit` findings: 2 moderate, both `esbuild` via Vite
+(dev-server-only). Fix requires Vite 6 major — still deferred.
