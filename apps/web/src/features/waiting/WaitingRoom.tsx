@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { MIN_PLAYERS, SOCKET_EVENTS, type RoomPublic } from '@durak/shared';
 import { useGameStore } from '@/store/gameStore';
@@ -62,7 +62,7 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
         <h2 className="label-eyebrow">Am Tisch</h2>
         <ul className="flex flex-col gap-2.5">
           {room.players.map((p, i) => (
-            <motion.li
+            <m.li
               key={p.id}
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
@@ -74,7 +74,7 @@ export const WaitingRoom = ({ room }: Props): JSX.Element => {
                 isMe={p.id === playerId}
                 variant="panel"
               />
-            </motion.li>
+            </m.li>
           ))}
         </ul>
 

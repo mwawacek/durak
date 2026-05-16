@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { LazyMotion, domAnimation } from 'framer-motion';
 import { attachSocketHandlers } from '@/services/socketHandlers';
 import { getSocket } from '@/services/socket';
 import { useNamePersistence } from '@/hooks/useNamePersistence';
@@ -22,15 +23,20 @@ export const App = (): JSX.Element => {
   }, []);
 
   return (
-    <BrowserRouter>
-      <Toast />
-      <ConnectionBadge />
-      <Routes>
-        <Route path="/" element={<LobbyRoute />} />
-        <Route path="/lobby" element={<Navigate to="/" replace />} />
-        <Route path="/r/:roomId" element={<RoomRoute />} />
-        <Route path="*" element={<NotFoundRoute />} />
-      </Routes>
-    </BrowserRouter>
+    // LazyMotion + the lightweight `m.*` components (used via `m` import in
+    // child files) trim ~20 KB off the framer-motion bundle vs the eager
+    // `motion.*` factory.
+    <LazyMotion features={domAnimation} strict>
+      <BrowserRouter>
+        <Toast />
+        <ConnectionBadge />
+        <Routes>
+          <Route path="/" element={<LobbyRoute />} />
+          <Route path="/lobby" element={<Navigate to="/" replace />} />
+          <Route path="/r/:roomId" element={<RoomRoute />} />
+          <Route path="*" element={<NotFoundRoute />} />
+        </Routes>
+      </BrowserRouter>
+    </LazyMotion>
   );
 };

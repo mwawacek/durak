@@ -1,5 +1,5 @@
 import { memo } from 'react';
-import { AnimatePresence, motion } from 'framer-motion';
+import { AnimatePresence, m } from 'framer-motion';
 import type { AttackPair } from '@durak/shared';
 import { Card } from '@/components/Card';
 import { PLAY_CARD_W, cardDims } from '@/components/cardSizes';
@@ -26,10 +26,11 @@ const BattleFieldImpl = ({ pairs, onAttackPress, highlightedAttackIds }: Props):
   return (
     <div className="grid grid-cols-3 gap-2.5">
       <AnimatePresence initial={false}>
+        {/* No `layout` prop: the grid is fixed grid-cols-3 and cards don't
+            reorder within the round, so FLIP measurements are wasted. */}
         {pairs.map((p) => (
-          <motion.div
+          <m.div
             key={p.attack.id}
-            layout
             initial={{ opacity: 0, y: -10, scale: 0.92 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 8, scale: 0.9 }}
@@ -40,7 +41,7 @@ const BattleFieldImpl = ({ pairs, onAttackPress, highlightedAttackIds }: Props):
               highlighted={highlightedAttackIds?.has(p.attack.id) ?? false}
               onClick={onAttackPress ? () => onAttackPress(p.attack.id) : undefined}
             />
-          </motion.div>
+          </m.div>
         ))}
       </AnimatePresence>
     </div>
@@ -66,14 +67,14 @@ const BattlePair = ({ pair, highlighted, onClick }: PairProps): JSX.Element => {
         style={{ position: 'absolute', top: 0, left: 0 }}
       />
       {pair.defense ? (
-        <motion.div
+        <m.div
           initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
           animate={{ opacity: 1, scale: 1, rotate: 14 }}
           transition={{ duration: 0.32, ease: EASE_OUT_EXPO }}
           style={{ position: 'absolute', top: PAIR_OFFSET, left: PAIR_OFFSET * 0.75 }}
         >
           <Card card={pair.defense} width={PLAY_CARD_W} defended />
-        </motion.div>
+        </m.div>
       ) : null}
     </div>
   );

@@ -24,6 +24,12 @@ const COMPACT_THRESHOLD = 4;
 const BACK_W_FULL = 24;
 const BACK_W_COMPACT = 18;
 
+// CardFan geometry — all ratios of the back-card width.
+const FAN_WIDTH_RATIO = 2.2;
+const FAN_HEIGHT_RATIO = 1.6;
+const FAN_X_OFFSET_RATIO = 0.4;
+const FAN_ROTATE_DEG_PER_STEP = 12;
+
 export const OpponentRow = memo(function OpponentRow({ seats }: Props) {
   if (seats.length === 0) return null;
   const compact = seats.length >= COMPACT_THRESHOLD;
@@ -72,7 +78,10 @@ function CardFan({
 }) {
   const w = cardWidth;
   return (
-    <div className="relative" style={{ width: w * 2.2, height: w * 1.6 }}>
+    <div
+      className="relative"
+      style={{ width: w * FAN_WIDTH_RATIO, height: w * FAN_HEIGHT_RATIO }}
+    >
       {Array.from({ length: count }).map((_, i) => {
         const k = count === 1 ? 0 : (i - (count - 1) / 2) / ((count - 1) / 2);
         return (
@@ -81,7 +90,9 @@ function CardFan({
             className="absolute left-1/2 top-0"
             style={{
               marginLeft: -w / 2,
-              transform: `translateX(${k * w * 0.4}px) rotate(${k * 12}deg)`,
+              transform: `translateX(${k * w * FAN_X_OFFSET_RATIO}px) rotate(${
+                k * FAN_ROTATE_DEG_PER_STEP
+              }deg)`,
             }}
           >
             <Card card={null} faceDown width={w} />

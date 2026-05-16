@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { motion } from 'framer-motion';
+import { m } from 'framer-motion';
 import { EASE_OUT_EXPO } from '@/lib/motion';
 import { cn } from '@/lib/cn';
 
@@ -67,15 +67,19 @@ export const ModalShell = ({
       )}
       onClick={dismissOnBackdrop && onClose ? onClose : undefined}
     >
-      <motion.div
+      <m.div
         onClick={(e) => e.stopPropagation()}
         className={wrapperClass}
         initial={motionInitial}
         animate={motionAnimate}
         transition={{ duration: 0.34, ease: EASE_OUT_EXPO }}
       >
+        {/* Drag handle for bottom-sheet variant — visual affordance on mobile. */}
+        {variant === 'bottom-sheet' ? (
+          <div className="mx-auto mb-2 h-1 w-10 rounded-full bg-line-mid sm:hidden" />
+        ) : null}
         {children}
-      </motion.div>
+      </m.div>
     </div>
   );
 };

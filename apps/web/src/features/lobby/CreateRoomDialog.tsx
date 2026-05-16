@@ -36,8 +36,6 @@ export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JS
         onSubmit={handleSubmit}
         className="rounded-t-sheet border border-line-mid bg-bg-card p-6 sm:rounded-sheet sm:p-7"
       >
-        <div className="mx-auto mb-5 h-1 w-10 rounded-full bg-line-mid sm:hidden" />
-
         <span className="label-eyebrow">Neuer Tisch</span>
         <SerifTitle id={titleId} size="md" className="mt-1">
           Wie soll er heißen?
