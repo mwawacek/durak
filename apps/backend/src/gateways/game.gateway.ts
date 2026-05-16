@@ -248,8 +248,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.requireRoomId(payload);
       this.requireCard(payload?.card);
       this.games.attack(payload.roomId, player.id, payload.card);
-      this.broadcastGameState(payload.roomId);
-      this.maybeFinishGame(payload.roomId);
+      this.afterGameMutation(payload.roomId);
       return undefined;
     });
   }
@@ -267,8 +266,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         throw new GameRuleError(ERROR_CODES.INVALID_PAYLOAD, 'attackCardId required');
       }
       this.games.defend(payload.roomId, player.id, payload.attackCardId, payload.defenseCard);
-      this.broadcastGameState(payload.roomId);
-      this.maybeFinishGame(payload.roomId);
+      this.afterGameMutation(payload.roomId);
       return undefined;
     });
   }
@@ -283,9 +281,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       this.requireRoomId(payload);
       this.requireCard(payload?.card);
       const state = this.games.redirect(payload.roomId, player.id, payload.card);
-      this.broadcastGameState(payload.roomId);
-      this.emitRoundStarted(payload.roomId, state);
-      this.maybeFinishGame(payload.roomId);
+      this.afterGameMutation(payload.roomId, { roundStartedState: state });
       return undefined;
     });
   }
@@ -298,9 +294,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.trySync(() => {
       const player = this.requirePlayer(client);
       const state = this.games.endTurn(payload.roomId, player.id);
-      this.broadcastGameState(payload.roomId);
-      this.emitRoundStarted(payload.roomId, state);
-      this.maybeFinishGame(payload.roomId);
+      this.afterGameMutation(payload.roomId, { roundStartedState: state });
       return undefined;
     });
   }
@@ -313,9 +307,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.trySync(() => {
       const player = this.requirePlayer(client);
       const state = this.games.takeCards(payload.roomId, player.id);
-      this.broadcastGameState(payload.roomId);
-      this.emitRoundStarted(payload.roomId, state);
-      this.maybeFinishGame(payload.roomId);
+      this.afterGameMutation(payload.roomId, { roundStartedState: state });
       return undefined;
     });
   }
@@ -345,6 +337,21 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.server.to(socketId).emit(SOCKET_EVENTS.GAME_STATE_UPDATE, view);
       }
     }
+  }
+
+  /** After every successful engine mutation, broadcast the per-player game
+   *  state, optionally emit ROUND_STARTED for handlers that rotated the
+   *  round, and finalise the game if it ended. Centralises a flow that was
+   *  duplicated across all five gameplay handlers. */
+  private afterGameMutation(
+    roomId: string,
+    options?: { roundStartedState?: GameStateInternal },
+  ): void {
+    this.broadcastGameState(roomId);
+    if (options?.roundStartedState) {
+      this.emitRoundStarted(roomId, options.roundStartedState);
+    }
+    this.maybeFinishGame(roomId);
   }
 
   private emitRoundStarted(roomId: string, state: GameStateInternal): void {
