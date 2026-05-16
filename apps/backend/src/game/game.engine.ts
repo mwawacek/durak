@@ -520,16 +520,24 @@ const checkFinished = (s: GameStateInternal): void => {
   }
 };
 
-export const markDisconnected = (state: GameStateInternal, playerId: string): GameStateInternal => {
+const setConnected = (
+  state: GameStateInternal,
+  playerId: string,
+  isConnected: boolean,
+): GameStateInternal => {
   const s = cloneState(state);
-  const p = s.players.find((pl) => pl.id === playerId);
-  if (p) p.isConnected = false;
+  const idx = s.players.findIndex((p) => p.id === playerId);
+  if (idx === -1) return state;
+  s.players[idx]!.isConnected = isConnected;
   return s;
 };
 
-export const markConnected = (state: GameStateInternal, playerId: string): GameStateInternal => {
-  const s = cloneState(state);
-  const p = s.players.find((pl) => pl.id === playerId);
-  if (p) p.isConnected = true;
-  return s;
-};
+export const markDisconnected = (
+  state: GameStateInternal,
+  playerId: string,
+): GameStateInternal => setConnected(state, playerId, false);
+
+export const markConnected = (
+  state: GameStateInternal,
+  playerId: string,
+): GameStateInternal => setConnected(state, playerId, true);
