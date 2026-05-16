@@ -81,22 +81,28 @@ const playerHasPileOnCard = (player: PlayerInternal, table: AttackPair[]): boole
  * Auto-pass: an eligible attacker is excluded from this set if they have no
  * pile-on-capable card (no rank match) — there's nothing to wait on them for.
  */
-const computePendingIndices = (s: GameStateInternal): Set<number> => {
-  if (s.table.length === 0 || !tableFullyDefended(s.table)) return new Set();
-  if (s.table.length >= MAX_TABLE_PAIRS) return new Set(); // table full → no more pile-on possible
+/** Attackers (eligible neighbours + main attacker) who can still pile on
+ *  given the table capacity and the defender's hand. Used by both
+ *  computePendingIndices (filtered further by tableFullyDefended) and
+ *  pileOnCapableIndices. */
+const eligibleAttackerIndices = (s: GameStateInternal): Set<number> => {
+  const out = new Set<number>();
   const defender = s.players[s.defenderIdx];
-  if (!defender || defender.hand.length === 0) return new Set(); // no defender capacity
-
-  const eligible = neighborAttackers(s);
-  const pending = new Set<number>();
-  for (const idx of eligible) {
+  if (!defender || defender.hand.length === 0) return out;
+  if (s.table.length >= MAX_TABLE_PAIRS) return out;
+  for (const idx of neighborAttackers(s)) {
     if (s.passConfirmations.has(idx)) continue;
     const player = s.players[idx]!;
     if (player.hasFinished) continue;
     if (!playerHasPileOnCard(player, s.table)) continue;
-    pending.add(idx);
+    out.add(idx);
   }
-  return pending;
+  return out;
+};
+
+const computePendingIndices = (s: GameStateInternal): Set<number> => {
+  if (s.table.length === 0 || !tableFullyDefended(s.table)) return new Set();
+  return eligibleAttackerIndices(s);
 };
 
 export const pendingConfirmationIds = (s: GameStateInternal): string[] => {
@@ -125,20 +131,8 @@ const tryAutoCommit = (s: GameStateInternal): void => {
  * Indices of attackers who still hold a pile-on-capable card AND haven't
  * confirmed Bito. If empty, no more attacks can land on the table.
  */
-const pileOnCapableIndices = (s: GameStateInternal): Set<number> => {
-  const eligible = neighborAttackers(s);
-  const out = new Set<number>();
-  const defender = s.players[s.defenderIdx];
-  if (!defender || defender.hand.length === 0) return out;
-  if (s.table.length >= MAX_TABLE_PAIRS) return out;
-  for (const idx of eligible) {
-    if (s.passConfirmations.has(idx)) continue;
-    const player = s.players[idx]!;
-    if (player.hasFinished) continue;
-    if (playerHasPileOnCard(player, s.table)) out.add(idx);
-  }
-  return out;
-};
+const pileOnCapableIndices = (s: GameStateInternal): Set<number> =>
+  eligibleAttackerIndices(s);
 
 const defenderCanBeatAnyUndefended = (s: GameStateInternal): boolean => {
   const defender = s.players[s.defenderIdx];
