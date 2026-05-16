@@ -430,15 +430,7 @@ export const takeCards = (state: GameStateInternal, playerId: string): GameState
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Table empty');
   }
 
-  const defender = s.players[s.defenderIdx]!;
-  for (const pair of s.table) {
-    defender.hand.push(pair.attack);
-    if (pair.defense) defender.hand.push(pair.defense);
-  }
-  s.table = [];
-
-  refillHands(s, s.attackerIdx);
-  rotateAfterFailure(s);
+  commitTake(s);
   checkFinished(s);
   return s;
 };
