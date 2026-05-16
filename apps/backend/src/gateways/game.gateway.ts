@@ -1,4 +1,4 @@
-import { Logger } from '@nestjs/common';
+import { BadRequestException, Logger, ValidationPipe, type Type } from '@nestjs/common';
 import {
   ConnectedSocket,
   MessageBody,
@@ -16,25 +16,23 @@ import {
   SOCKET_EVENTS,
   ERROR_CODES,
   RoomPublic,
-  JoinLobbyPayload,
   JoinLobbyResult,
-  CreateRoomPayload,
   CreateRoomResult,
-  JoinRoomPayload,
   JoinRoomResult,
-  LeaveRoomPayload,
-  StartGamePayload,
-  PlayCardPayload,
-  DefendCardPayload,
-  RedirectAttackPayload,
-  EndTurnPayload,
-  TakeCardsPayload,
 } from '@durak/shared';
 import { PlayerService } from '../player/player.service';
 import { RoomService, RoomError } from '../room/room.service';
 import { GameService } from '../game/game.service';
 import { GameRuleError } from '../game/game.engine';
 import { GameStateInternal } from '../game/game.types';
+import {
+  JoinLobbyDto,
+  CreateRoomDto,
+  RoomRefDto,
+  PlayCardDto,
+  DefendCardDto,
+  RedirectAttackDto,
+} from './dto';
 
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
@@ -130,9 +128,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.JOIN_LOBBY)
   async onJoinLobby(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: JoinLobbyPayload,
+    @MessageBody() raw: unknown,
   ): Promise<AckResult<JoinLobbyResult>> {
     return this.tryAck(async () => {
+      const payload = await this.validate(JoinLobbyDto, raw);
       const { id, name } = await this.players.register(payload.playerName, client.id);
 
       // Reconnect: clear pending disconnect timer.
@@ -166,9 +165,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.CREATE_ROOM)
   onCreateRoom(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: CreateRoomPayload,
-  ): AckResult<CreateRoomResult> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<CreateRoomResult>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(CreateRoomDto, raw);
       const player = this.requirePlayer(client);
       const room = this.rooms.create(player.id, player.name, payload.name, payload.maxPlayers);
       client.join(room.id);
@@ -180,9 +180,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.JOIN_ROOM)
   onJoinRoom(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: JoinRoomPayload,
-  ): AckResult<JoinRoomResult> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<JoinRoomResult>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(RoomRefDto, raw);
       const player = this.requirePlayer(client);
       const room = this.rooms.join(payload.roomId, player.id, player.name);
       client.join(room.id);
@@ -200,9 +201,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.LEAVE_ROOM)
   onLeaveRoom(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: LeaveRoomPayload,
-  ): AckResult<void> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<void>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(RoomRefDto, raw);
       const player = this.requirePlayer(client);
       const room = this.rooms.leave(payload.roomId, player.id);
       client.leave(payload.roomId);
@@ -221,9 +223,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.START_GAME)
   onStartGame(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: StartGamePayload,
-  ): AckResult<void> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<void>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(RoomRefDto, raw);
       const player = this.requirePlayer(client);
       const room = this.rooms.startGame(payload.roomId, player.id);
       const game = this.games.create(
@@ -241,12 +244,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.PLAY_CARD)
   onPlayCard(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: PlayCardPayload,
-  ): AckResult<void> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<void>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(PlayCardDto, raw);
       const player = this.requirePlayer(client);
-      this.requireRoomId(payload);
-      this.requireCard(payload?.card);
       this.games.attack(payload.roomId, player.id, payload.card);
       this.afterGameMutation(payload.roomId);
       return undefined;
@@ -256,15 +258,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.DEFEND_CARD)
   onDefendCard(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: DefendCardPayload,
-  ): AckResult<void> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<void>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(DefendCardDto, raw);
       const player = this.requirePlayer(client);
-      this.requireRoomId(payload);
-      this.requireCard(payload?.defenseCard);
-      if (typeof payload?.attackCardId !== 'string' || payload.attackCardId.length === 0) {
-        throw new GameRuleError(ERROR_CODES.INVALID_PAYLOAD, 'attackCardId required');
-      }
       this.games.defend(payload.roomId, player.id, payload.attackCardId, payload.defenseCard);
       this.afterGameMutation(payload.roomId);
       return undefined;
@@ -274,12 +272,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.REDIRECT_ATTACK)
   onRedirectAttack(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: RedirectAttackPayload,
-  ): AckResult<void> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<void>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(RedirectAttackDto, raw);
       const player = this.requirePlayer(client);
-      this.requireRoomId(payload);
-      this.requireCard(payload?.card);
       const state = this.games.redirect(payload.roomId, player.id, payload.card);
       this.afterGameMutation(payload.roomId, { roundStartedState: state });
       return undefined;
@@ -289,9 +286,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.END_TURN)
   onEndTurn(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: EndTurnPayload,
-  ): AckResult<void> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<void>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(RoomRefDto, raw);
       const player = this.requirePlayer(client);
       const state = this.games.endTurn(payload.roomId, player.id);
       this.afterGameMutation(payload.roomId, { roundStartedState: state });
@@ -302,9 +300,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @SubscribeMessage(SOCKET_EVENTS.TAKE_CARDS)
   onTakeCards(
     @ConnectedSocket() client: TypedSocket,
-    @MessageBody() payload: TakeCardsPayload,
-  ): AckResult<void> {
-    return this.trySync(() => {
+    @MessageBody() raw: unknown,
+  ): Promise<AckResult<void>> {
+    return this.tryAck(async () => {
+      const payload = await this.validate(RoomRefDto, raw);
       const player = this.requirePlayer(client);
       const state = this.games.takeCards(payload.roomId, player.id);
       this.afterGameMutation(payload.roomId, { roundStartedState: state });
@@ -389,37 +388,40 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   }
 
   // ─────────────────────────────────────────────────────────────────
-  // Payload runtime guards (lightweight — keeps the engine from
-  // dereferencing nulls on a malformed client payload).
+  // Payload validation
+  //
+  // The global ValidationPipe in main.ts only fires for HTTP routes — for
+  // Socket.IO gateways NestJS catches BadRequestException in the WS proxy
+  // and never invokes the client ack, so callers see a timeout instead of
+  // a typed error. We re-use the same pipe configuration manually here so
+  // the throw flows through tryAck and becomes a structured INVALID_PAYLOAD
+  // ack response.
   // ─────────────────────────────────────────────────────────────────
-  private requireRoomId(payload: unknown): asserts payload is { roomId: string } {
-    if (
-      !payload ||
-      typeof payload !== 'object' ||
-      typeof (payload as { roomId?: unknown }).roomId !== 'string' ||
-      (payload as { roomId: string }).roomId.length === 0
-    ) {
-      throw new GameRuleError(ERROR_CODES.INVALID_PAYLOAD, 'roomId required');
-    }
-  }
+  private readonly validationPipe = new ValidationPipe({
+    whitelist: true,
+    forbidNonWhitelisted: true,
+    transform: true,
+  });
 
-  private requireCard(card: unknown): asserts card is { rank: string; suit: string; id: string } {
-    if (
-      !card ||
-      typeof card !== 'object' ||
-      typeof (card as { rank?: unknown }).rank !== 'string' ||
-      typeof (card as { suit?: unknown }).suit !== 'string' ||
-      typeof (card as { id?: unknown }).id !== 'string'
-    ) {
-      throw new GameRuleError(ERROR_CODES.INVALID_PAYLOAD, 'malformed card payload');
-    }
-  }
-
-  private trySync<T>(fn: () => T): AckResult<T> {
+  private async validate<T>(dto: Type<T>, payload: unknown): Promise<T> {
     try {
-      return { ok: true, data: fn() };
+      return (await this.validationPipe.transform(payload, {
+        type: 'body',
+        metatype: dto,
+      })) as T;
     } catch (err) {
-      return this.toAckError(err);
+      if (err instanceof BadRequestException) {
+        const response = err.getResponse();
+        const message =
+          typeof response === 'string'
+            ? response
+            : ((response as { message?: string | string[] }).message ?? 'Invalid payload');
+        throw new GameRuleError(
+          ERROR_CODES.INVALID_PAYLOAD,
+          Array.isArray(message) ? message.join('; ') : message,
+        );
+      }
+      throw err;
     }
   }
 
