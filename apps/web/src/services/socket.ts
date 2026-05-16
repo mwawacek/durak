@@ -1,5 +1,10 @@
 import { io, type Socket } from 'socket.io-client';
-import { type AckResult, ERROR_CODES, type SocketEventName } from '@durak/shared';
+import {
+  type AckResult,
+  ERROR_CODES,
+  SOCKET_ACK_TIMEOUT_MS,
+  type SocketEventName,
+} from '@durak/shared';
 import { useGameStore } from '@/store/gameStore';
 
 /**
@@ -60,7 +65,7 @@ export const emitAck = async (
     // `emitWithAck` is typed as `Promise<unknown>`. The runtime always
     // returns `AckResult<unknown>` because every backend handler wraps its
     // response — this cast is the documented contract boundary.
-    return (await s.timeout(10_000).emitWithAck(event, ...args)) as AckResult<unknown>;
+    return (await s.timeout(SOCKET_ACK_TIMEOUT_MS).emitWithAck(event, ...args)) as AckResult<unknown>;
   } catch {
     const message = s.connected ? 'Server hat nicht geantwortet' : 'Verbindung getrennt';
     return {

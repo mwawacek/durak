@@ -26,6 +26,9 @@ export const SOCKET_EVENTS = {
 
 export type SocketEventName = (typeof SOCKET_EVENTS)[keyof typeof SOCKET_EVENTS];
 
+/** Default ack timeout (ms) used by all socket-emit helpers. */
+export const SOCKET_ACK_TIMEOUT_MS = 10_000;
+
 export type AckResult<T> =
   | { ok: true; data: T }
   | { ok: false; error: { code: string; message: string } };

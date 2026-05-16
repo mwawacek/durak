@@ -19,6 +19,7 @@ import {
   beats,
   canPileOn,
   MAX_TABLE_PAIRS,
+  SOCKET_ACK_TIMEOUT_MS,
 } from '../packages/shared/dist/index.js';
 
 const args = process.argv.slice(2);
@@ -35,7 +36,7 @@ const HOST_ROOM = args.includes('--host-room');
 
 const ack = (socket, event, ...payload) =>
   new Promise((resolve, reject) => {
-    socket.timeout(10_000).emit(event, ...payload, (err, res) =>
+    socket.timeout(SOCKET_ACK_TIMEOUT_MS).emit(event, ...payload, (err, res) =>
       err ? reject(err) : resolve(res),
     );
   });
