@@ -135,6 +135,11 @@ export class RoomService {
     return [...this.rooms.values()];
   }
 
+  /** Public projection of every room — what the lobby broadcast carries. */
+  listPublic(): RoomPublic[] {
+    return [...this.rooms.values()].map((r) => this.toPublic(r));
+  }
+
   roomsForPlayer(playerId: string): RoomInternal[] {
     return [...this.rooms.values()].filter((r) => r.members.some((m) => m.id === playerId));
   }

@@ -15,7 +15,6 @@ import {
   ServerToClientEvents,
   SOCKET_EVENTS,
   ERROR_CODES,
-  RoomPublic,
   JoinLobbyResult,
   CreateRoomResult,
   JoinRoomResult,
@@ -157,7 +156,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
       return {
         playerId: id,
-        rooms: this.rooms.list().map((r) => this.rooms.toPublic(r)),
+        rooms: this.rooms.listPublic(),
       } satisfies JoinLobbyResult;
     });
   }
@@ -316,8 +315,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   // ─────────────────────────────────────────────────────────────────
 
   private broadcastRoomList(): void {
-    const list: RoomPublic[] = this.rooms.list().map((r) => this.rooms.toPublic(r));
-    this.server.emit(SOCKET_EVENTS.ROOM_LIST_UPDATE, list);
+    this.server.emit(SOCKET_EVENTS.ROOM_LIST_UPDATE, this.rooms.listPublic());
   }
 
   private broadcastRoomState(roomId: string): void {
