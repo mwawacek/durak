@@ -5,11 +5,20 @@ import { Card } from '@/components/Card';
 import { PLAY_CARD_W, cardDims } from '@/components/cardSizes';
 import { EASE_OUT_EXPO } from '@/lib/motion';
 
-// Constant per-render, hoisted out of the BattlePair body.
+// Hoisted out of the BattlePair body so React.memo on Card actually
+// short-circuits (a fresh inline style literal would invalidate the prop
+// comparison on every render).
 const PLAY_DIMS = cardDims(PLAY_CARD_W);
 const PAIR_OFFSET = PLAY_CARD_W * 0.22;
 const CELL_W = PLAY_DIMS.w + PAIR_OFFSET;
 const CELL_H = PLAY_DIMS.h + PAIR_OFFSET;
+const ATTACK_STYLE = { position: 'absolute' as const, top: 0, left: 0 };
+const DEFENSE_WRAPPER_STYLE = {
+  position: 'absolute' as const,
+  top: PAIR_OFFSET,
+  left: PAIR_OFFSET * 0.75,
+};
+const CELL_STYLE = { width: CELL_W, height: CELL_H };
 
 interface Props {
   pairs: AttackPair[];
@@ -58,20 +67,20 @@ interface PairProps {
 
 const BattlePair = ({ pair, highlighted, onClick }: PairProps): JSX.Element => {
   return (
-    <div className="relative" style={{ width: CELL_W, height: CELL_H }}>
+    <div className="relative" style={CELL_STYLE}>
       <Card
         card={pair.attack}
         width={PLAY_CARD_W}
         selected={highlighted}
         onClick={onClick}
-        style={{ position: 'absolute', top: 0, left: 0 }}
+        style={ATTACK_STYLE}
       />
       {pair.defense ? (
         <m.div
           initial={{ opacity: 0, scale: 0.85, rotate: 0 }}
           animate={{ opacity: 1, scale: 1, rotate: 14 }}
           transition={{ duration: 0.32, ease: EASE_OUT_EXPO }}
-          style={{ position: 'absolute', top: PAIR_OFFSET, left: PAIR_OFFSET * 0.75 }}
+          style={DEFENSE_WRAPPER_STYLE}
         >
           <Card card={pair.defense} width={PLAY_CARD_W} defended />
         </m.div>

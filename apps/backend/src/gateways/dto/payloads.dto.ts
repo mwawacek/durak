@@ -1,17 +1,23 @@
 import { Type } from 'class-transformer';
 import { IsInt, IsString, Length, Max, Min, ValidateNested } from 'class-validator';
-import { MAX_PLAYERS, MIN_PLAYERS } from '@durak/shared';
+import {
+  MAX_PLAYERS,
+  MIN_PLAYERS,
+  NAME_MIN_LEN,
+  PLAYER_NAME_MAX_LEN,
+  ROOM_NAME_MAX_LEN,
+} from '@durak/shared';
 import { CardDto } from './card.dto';
 
 export class JoinLobbyDto {
   @IsString()
-  @Length(2, 32)
+  @Length(NAME_MIN_LEN, PLAYER_NAME_MAX_LEN)
   playerName!: string;
 }
 
 export class CreateRoomDto {
   @IsString()
-  @Length(1, 48)
+  @Length(NAME_MIN_LEN, ROOM_NAME_MAX_LEN)
   name!: string;
 
   @IsInt()

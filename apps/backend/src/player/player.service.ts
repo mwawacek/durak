@@ -1,12 +1,10 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { ERROR_CODES } from '@durak/shared';
+import { ERROR_CODES, NAME_MIN_LEN, PLAYER_NAME_MAX_LEN } from '@durak/shared';
 import { PlayerEntity } from './player.entity';
 import { GameRuleError } from '../game/game.engine';
 
-const NAME_MIN_LEN = 2;
-const NAME_MAX_LEN = 32;
 const GUEST_PREFIX = 'guest-';
 
 /**
@@ -28,10 +26,10 @@ export class PlayerService {
 
   async register(name: string, socketId: string): Promise<{ id: string; name: string }> {
     const trimmed = name.trim();
-    if (trimmed.length < NAME_MIN_LEN || trimmed.length > NAME_MAX_LEN) {
+    if (trimmed.length < NAME_MIN_LEN || trimmed.length > PLAYER_NAME_MAX_LEN) {
       throw new GameRuleError(
         ERROR_CODES.INVALID_PAYLOAD,
-        `Name muss ${NAME_MIN_LEN}–${NAME_MAX_LEN} Zeichen lang sein`,
+        `Name muss ${NAME_MIN_LEN}–${PLAYER_NAME_MAX_LEN} Zeichen lang sein`,
       );
     }
 

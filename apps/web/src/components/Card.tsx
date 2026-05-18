@@ -8,7 +8,6 @@ interface Props {
   card: CardType | null;
   faceDown?: boolean;
   onClick?: () => void;
-  disabled?: boolean;
   selected?: boolean;
   /** Coral dot at the top-right — marks trump cards in hand. */
   isTrump?: boolean;
@@ -18,9 +17,6 @@ interface Props {
   defended?: boolean;
   /** Width in pixels. Height is derived from CARD_ASPECT. */
   width: number;
-  /** Optional rotation in degrees (used by CardBack fans). */
-  rotate?: number;
-  className?: string;
   style?: CSSProperties;
 }
 
@@ -42,18 +38,26 @@ const CORNER_GLYPH_RATIO = 0.42;
 const TRUMP_DOT_RATIO = 0.115;
 const INNER_BORDER_INSET_RATIO = 0.06;
 
+// Hoisted out of the render body so `Card.memo` can short-circuit when
+// callers pass the same `style` reference (BattleField uses the constants
+// in services/style.ts; PlayerHand recreates per-card style which is fine).
+const SHADOW_DEFAULT =
+  '0 1px 0 rgba(255,255,255,0.55) inset, 0 6px 14px -6px rgba(0,0,0,0.45)';
+const SHADOW_FACEDOWN = '0 6px 14px -6px rgba(0,0,0,0.55)';
+const SHADOW_SELECTED =
+  '0 14px 30px -10px rgba(255,111,94,0.55), 0 2px 6px rgba(0,0,0,0.3)';
+const BORDER_DEFAULT = '0.5px solid rgba(0,0,0,0.08)';
+const BORDER_ACCENT = `1.5px solid ${tokens.accent.base}`;
+
 const CardImpl = ({
   card,
   faceDown,
   onClick,
-  disabled,
   selected,
   isTrump,
   playable = true,
   defended,
   width,
-  rotate = 0,
-  className,
   style,
 }: Props): JSX.Element => {
   const { w, h } = cardDims(width);
@@ -68,29 +72,17 @@ const CardImpl = ({
   const cardBox = (
     <div
       className={cn(
-        'relative box-border transition-all duration-150 ease-out',
+        'relative box-border overflow-hidden transition-all duration-150 ease-out no-select touch-game',
         selected && '-translate-y-2.5',
         !playable && !selected && 'opacity-45',
-        disabled && 'cursor-not-allowed',
-        'no-select touch-game',
-        className,
       )}
       style={{
         width: w,
         height: h,
         borderRadius: radius,
-        border:
-          selected || defended
-            ? `1.5px solid ${tokens.accent.base}`
-            : '0.5px solid rgba(0,0,0,0.08)',
-        boxShadow: selected
-          ? '0 14px 30px -10px rgba(255,111,94,0.55), 0 2px 6px rgba(0,0,0,0.3)'
-          : faceDown
-            ? '0 6px 14px -6px rgba(0,0,0,0.55)'
-            : '0 1px 0 rgba(255,255,255,0.55) inset, 0 6px 14px -6px rgba(0,0,0,0.45)',
+        border: selected || defended ? BORDER_ACCENT : BORDER_DEFAULT,
+        boxShadow: selected ? SHADOW_SELECTED : faceDown ? SHADOW_FACEDOWN : SHADOW_DEFAULT,
         backgroundColor: faceDown ? 'transparent' : tokens.surface.card,
-        transform: rotate ? `rotate(${rotate}deg)` : undefined,
-        overflow: 'hidden',
         ...style,
       }}
     >
@@ -110,7 +102,6 @@ const CardImpl = ({
     <button
       type="button"
       onClick={onClick}
-      disabled={disabled}
       aria-label={ariaLabel}
       aria-disabled={!playable || undefined}
       tabIndex={playable ? 0 : -1}

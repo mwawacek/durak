@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from 'react';
+import { NAME_MIN_LEN, PLAYER_NAME_MAX_LEN } from '@durak/shared';
 import { useGameStore } from '@/store/gameStore';
 import { WordMark } from './WordMark';
 import { BrassButton } from './BrassButton';
@@ -7,9 +8,6 @@ import { ModalShell } from './ModalShell';
 interface Props {
   reason?: 'lobby' | 'invite';
 }
-
-const NAME_MIN_LEN = 2;
-const NAME_MAX_LEN = 32;
 
 export const NameEntryModal = ({ reason = 'lobby' }: Props): JSX.Element => {
   const setIdentity = useGameStore((s) => s.setIdentity);
@@ -62,7 +60,7 @@ export const NameEntryModal = ({ reason = 'lobby' }: Props): JSX.Element => {
             placeholder="z. B. Anna"
             autoFocus
             autoComplete="given-name"
-            maxLength={NAME_MAX_LEN}
+            maxLength={PLAYER_NAME_MAX_LEN}
             aria-invalid={error !== null}
             className="rounded-card border border-line-mid bg-bg-mid px-4 py-3.5 font-sans text-base text-text-primary placeholder:text-text-tertiary focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/20"
           />

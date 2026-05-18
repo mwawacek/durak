@@ -1,5 +1,5 @@
 import { useId, useState, type FormEvent } from 'react';
-import { MIN_PLAYERS, MAX_PLAYERS } from '@durak/shared';
+import { MIN_PLAYERS, MAX_PLAYERS, ROOM_NAME_MAX_LEN } from '@durak/shared';
 import { BrassButton } from '@/components/BrassButton';
 import { SerifTitle } from '@/components/SerifTitle';
 import { ModalShell } from '@/components/ModalShell';
@@ -12,7 +12,6 @@ interface Props {
 }
 
 const DEFAULT_MAX_PLAYERS = 4;
-const ROOM_NAME_MAX_LEN = 48;
 
 export const CreateRoomDialog = ({ onCancel, onCreate, defaultName }: Props): JSX.Element => {
   const [name, setName] = useState(defaultName);

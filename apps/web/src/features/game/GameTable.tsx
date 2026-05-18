@@ -25,6 +25,10 @@ type Selection =
 
 const NO_SELECTION: Selection = { kind: 'none' };
 
+// Haptic patterns used after a successful committed action.
+const VIBRATE_TAP_MS = 20;
+const VIBRATE_TAKE_PATTERN_MS = [15, 30, 15];
+
 interface Props {
   game: GameStatePrivate;
   roomId: string;
@@ -102,7 +106,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     setBusy(false);
     if (ok !== null) {
       setSelection(NO_SELECTION);
-      vibrate(20);
+      vibrate(VIBRATE_TAP_MS);
     }
   };
 
@@ -120,7 +124,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
       setBusy(false);
       if (ok !== null) {
         setSelection(NO_SELECTION);
-        vibrate(20);
+        vibrate(VIBRATE_TAP_MS);
       }
       return;
     }
@@ -154,7 +158,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     setBusy(false);
     if (ok !== null) {
       setSelection(NO_SELECTION);
-      vibrate(20);
+      vibrate(VIBRATE_TAP_MS);
     }
   };
 
@@ -171,7 +175,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     setBusy(true);
     await emitAckOrToast(SOCKET_EVENTS.END_TURN, { roomId });
     setBusy(false);
-    vibrate(20);
+    vibrate(VIBRATE_TAP_MS);
   };
 
   const handleTake = async () => {
@@ -179,7 +183,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     setBusy(true);
     await emitAckOrToast(SOCKET_EVENTS.TAKE_CARDS, { roomId });
     setBusy(false);
-    vibrate([15, 30, 15]);
+    vibrate(VIBRATE_TAKE_PATTERN_MS);
   };
 
   const handleToggleRedirect = () => {
@@ -192,7 +196,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
     canRedirect,
     needsMyConfirmation,
     awaitingFrom,
-    tableLen: game.table.length,
+    tableLength: game.table.length,
     defenderName: defender?.name,
     redirectMode,
   });
@@ -272,7 +276,7 @@ interface HeadlineArgs {
   canRedirect: boolean;
   needsMyConfirmation: boolean;
   awaitingFrom: string[];
-  tableLen: number;
+  tableLength: number;
   defenderName: string | undefined;
   redirectMode: boolean;
 }
@@ -288,7 +292,7 @@ const buildHeadline = (a: HeadlineArgs): { line: string; sub: string } => {
     };
   }
   if (a.isAttacker) {
-    return a.tableLen === 0
+    return a.tableLength === 0
       ? { line: 'Du bist am Zug', sub: 'Wähle eine Karte aus der Hand.' }
       : { line: 'Dein Zug', sub: 'Lege nach oder warte ab.' };
   }
