@@ -7,7 +7,7 @@ Production-grade online multiplayer implementation of the Russian card game **Du
 | Layer        | Technology                                                     |
 | ------------ | -------------------------------------------------------------- |
 | Web client   | Vite + React 18 + TypeScript, Zustand, TailwindCSS, Framer Motion, Socket.IO client |
-| Backend      | NestJS 10, Socket.IO Gateway, REST (health/auth)               |
+| Backend      | NestJS 11, Socket.IO Gateway, REST (health)                    |
 | Persistence  | PostgreSQL 16 (TypeORM), optional — game state is in-memory    |
 | Shared Types | `@durak/shared` — Card, GameState, Socket event contracts      |
 
@@ -165,21 +165,79 @@ All events and payload types live in `packages/shared/src/events.ts` and are imp
 | `npm run lint`           | ESLint across all workspaces                     |
 | `npm run docker:up`      | Build + start backend + postgres                 |
 
+## Deploy (Fly.io — single-origin)
+
+The repo ships a multi-stage `Dockerfile` and a `fly.toml` that bake the
+Vite build into the backend image. One container serves Socket.IO **and**
+the web bundle from the same origin — no CORS, no separate frontend host.
+
+### First-time setup
+
+```bash
+# 1. Install the Fly CLI (https://fly.io/docs/flyctl/install/)
+brew install flyctl              # or: curl -L https://fly.io/install.sh | sh
+fly auth signup                  # or `fly auth login` if you already have one
+
+# 2. Pick a unique app name (must be globally unique on Fly).
+#    `fly launch --no-deploy` reads fly.toml and prompts to rewrite the
+#    `app = '…'` line. Keep the rest of the file (region fra, port 3010,
+#    256 MB shared CPU, auto-stop).
+fly launch --no-deploy --copy-config
+
+# 3. First real deploy
+fly deploy
+```
+
+After ~3 minutes the app is live at `https://<your-app-name>.fly.dev`.
+Share that URL with friends to play.
+
+### Iterate
+
+```bash
+# Code change → push to Fly
+fly deploy
+fly logs              # tail server logs
+fly status            # current machine state (started / suspended / stopped)
+fly ssh console       # exec into the running container
+```
+
+### Cost
+
+`shared-cpu-1x` + 256 MB RAM with `auto_stop_machines = 'suspend'` runs
+**~$0.30–1 / month** at "friends playing 1-2 h / day". Auto-stop suspends
+the machine after a few minutes idle; the next request wakes it in ~1 s.
+
+### Custom domain (optional, later)
+
+```bash
+fly certs add durak.example.com
+# Then point your DNS:
+#   A    durak     <fly-app-ipv4>
+#   AAAA durak     <fly-app-ipv6>
+# Get the values with: fly ips list
+```
+
+Once the domain works, tighten `CORS_ORIGIN` in `fly.toml`:
+
+```toml
+[env]
+  CORS_ORIGIN = 'https://durak.example.com'
+```
+
+Then `fly deploy`.
+
+---
+
 ## Roadmap
 
 1. ✅ Monorepo setup
-2. ✅ NestJS backend
+2. ✅ NestJS backend (Socket.IO + REST)
 3. ✅ Web client (Vite + React, mobile-first)
-4. ✅ Socket connection (typed)
-5. ✅ Lobby & Room system
-6. ✅ Shareable room URLs (`/r/:roomId`)
-7. ✅ Card model + game state
-8. ✅ Deck shuffle + deal
-9. ✅ Trump logic
-10. ✅ Attack logic
-11. ✅ Defense logic
-12. ✅ Round resolution (bito / take)
-13. ✅ Game sync (per-player projections)
-14. ✅ Reconnect handling (30s grace)
-15. ✅ PostgreSQL integration (optional, profile stats)
-16. ✅ Deployment (Dockerfile + compose)
+4. ✅ Lobby & shareable room URLs (`/r/:roomId`)
+5. ✅ Full ruleset: attack, defend, redirect, bito, take
+6. ✅ Per-player projections (anti-cheat)
+7. ✅ Reconnect handling (30 s grace)
+8. ✅ Runtime DTO validation (class-validator)
+9. ✅ PostgreSQL profile persistence (optional)
+10. ✅ Single-container Fly.io deploy (Dockerfile + fly.toml)
+11. ⏳ Domain + HTTPS for production usage
