@@ -40,12 +40,14 @@ const removeFromHand = (p: PlayerInternal, card: Card): void => {
   p.hand.splice(i, 1);
 };
 
+const isActive = (p: PlayerInternal): boolean => !p.hasFinished && !p.hasLeft;
+
 const nextActiveIdx = (s: GameStateInternal, startIdx: number, skipIdx?: number): number => {
   const n = s.players.length;
   for (let step = 1; step <= n; step++) {
     const idx = (startIdx + step) % n;
     if (idx === skipIdx) continue;
-    if (!s.players[idx]!.hasFinished) return idx;
+    if (isActive(s.players[idx]!)) return idx;
   }
   return startIdx;
 };
@@ -54,7 +56,7 @@ const prevActiveIdx = (s: GameStateInternal, startIdx: number): number => {
   const n = s.players.length;
   for (let step = 1; step <= n; step++) {
     const idx = (startIdx - step + n) % n;
-    if (!s.players[idx]!.hasFinished) return idx;
+    if (isActive(s.players[idx]!)) return idx;
   }
   return startIdx;
 };
@@ -93,7 +95,7 @@ const eligibleAttackerIndices = (s: GameStateInternal): Set<number> => {
   for (const idx of neighborAttackers(s)) {
     if (s.passConfirmations.has(idx)) continue;
     const player = s.players[idx]!;
-    if (player.hasFinished) continue;
+    if (!isActive(player)) continue;
     if (!playerHasPileOnCard(player, s.table)) continue;
     out.add(idx);
   }
@@ -218,6 +220,7 @@ export const initGame = ({ roomId, players, deck, dealerIdx, now }: InitArgs): G
     isConnected: true,
     hasFinished: false,
     finishedAt: null,
+    hasLeft: false,
   }));
 
   const deckCopy = [...deck];
@@ -447,7 +450,7 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
 
   for (const idx of order) {
     const p = s.players[idx]!;
-    if (p.hasFinished) continue;
+    if (!isActive(p)) continue;
     while (p.hand.length < STARTING_HAND_SIZE && s.deck.length > 0) {
       const card = s.deck.shift()!;
       p.hand.push(card);
@@ -463,7 +466,7 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
   }
 
   for (const p of s.players) {
-    if (!p.hasFinished && s.deck.length === 0 && p.hand.length === 0) {
+    if (isActive(p) && s.deck.length === 0 && p.hand.length === 0) {
       p.hasFinished = true;
       p.finishedAt = Date.now();
     }
@@ -472,10 +475,10 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
 
 const rotateAfterSuccess = (s: GameStateInternal): void => {
   const newAttacker = s.defenderIdx;
-  if (s.players[newAttacker]!.hasFinished) {
-    s.attackerIdx = nextActiveIdx(s, newAttacker);
-  } else {
+  if (isActive(s.players[newAttacker]!)) {
     s.attackerIdx = newAttacker;
+  } else {
+    s.attackerIdx = nextActiveIdx(s, newAttacker);
   }
   s.defenderIdx = nextActiveIdx(s, s.attackerIdx);
   s.phase = 'attacking';
@@ -490,20 +493,89 @@ const rotateAfterFailure = (s: GameStateInternal): void => {
 };
 
 const checkFinished = (s: GameStateInternal): void => {
-  const activePlayers = s.players.filter((p) => !p.hasFinished);
-  if (activePlayers.length <= 1 && s.deck.length === 0) {
-    s.phase = 'finished';
-    if (activePlayers.length === 1) {
-      s.loserId = activePlayers[0]!.id;
+  const stillIn = s.players.filter((p) => isActive(p));
+  // Natural endgame: deck drained and ≤1 player still holds cards.
+  // Forfeit endgame: someone left, and ≤1 player remains who can still play.
+  const natural = stillIn.length <= 1 && s.deck.length === 0;
+  const forfeit = stillIn.length <= 1 && s.players.some((p) => p.hasLeft);
+  if (!natural && !forfeit) return;
+
+  s.phase = 'finished';
+  if (stillIn.length === 1) {
+    // Pure forfeit (no natural end yet) — the last player standing won by
+    // outlasting everyone else. No Durak. If both conditions apply (deck
+    // also empty), natural takes precedence: they're holding cards they
+    // couldn't get rid of, so they're the Durak after all.
+    if (forfeit && !natural) {
+      s.loserId = null;
     } else {
-      // Edge case: everyone finished on the same step (e.g. last refill drained
-      // both hands). The "natural durak" is whoever finished LAST.
-      const last = s.players
-        .filter((p) => p.finishedAt !== null)
-        .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
-      s.loserId = last?.id ?? null;
+      s.loserId = stillIn[0]!.id;
     }
+  } else {
+    // Edge case: everyone finished on the same step (e.g. last refill drained
+    // both hands). The "natural durak" is whoever finished LAST.
+    const last = s.players
+      .filter((p) => p.finishedAt !== null)
+      .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
+    s.loserId = last?.id ?? null;
   }
+};
+
+/**
+ * Player leaves mid-game (explicit "Verlassen" or timeout past the reconnect
+ * grace). Their cards are forfeited to the discard pile and the turn state
+ * is rotated so the remaining players can continue without the engine's
+ * stable-seat-array invariants being violated.
+ *
+ * No-ops if the player isn't in the game, has already left, has already
+ * finished, or the game is already over.
+ */
+export const leaveGame = (state: GameStateInternal, playerId: string): GameStateInternal => {
+  if (state.phase === 'finished') return state;
+  const idx = state.players.findIndex((p) => p.id === playerId);
+  if (idx < 0) return state;
+  const existing = state.players[idx]!;
+  if (existing.hasLeft || existing.hasFinished) return state;
+
+  const s = cloneState(state);
+  const me = s.players[idx]!;
+  me.hasLeft = true;
+  s.discard.push(...me.hand);
+  me.hand = [];
+  s.passConfirmations.delete(idx);
+
+  if (idx === s.defenderIdx) {
+    // Defender abandoned. Any cards on the table go to the discard (no one
+    // picks them up — that "loss" is the cost of leaving). Hands refill so
+    // the next round starts clean.
+    if (s.table.length > 0) {
+      for (const pair of s.table) {
+        s.discard.push(pair.attack);
+        if (pair.defense) s.discard.push(pair.defense);
+      }
+      s.table = [];
+      s.passConfirmations.clear();
+      refillHands(s, s.attackerIdx);
+    }
+    // Same attacker continues; defender role advances to the next active seat.
+    s.defenderIdx = nextActiveIdx(s, s.attackerIdx);
+    s.phase = 'attacking';
+    s.turnStartedAt = Date.now();
+  } else if (idx === s.attackerIdx) {
+    // Main attacker walked. Defender keeps defending whatever's already on
+    // the table; the main-attacker role passes to the next active seat that
+    // isn't the defender (`nextActiveIdx` accepts a skip index for exactly
+    // this) so we don't accidentally rotate the defender into the attacker
+    // slot.
+    s.attackerIdx = nextActiveIdx(s, idx, s.defenderIdx);
+  }
+  // Pile-on neighbour leaving: nothing structural to fix — nextActiveIdx
+  // and eligibleAttackerIndices already skip hasLeft.
+
+  tryAutoCommit(s);
+  tryAutoTake(s);
+  checkFinished(s);
+  return s;
 };
 
 const setConnected = (

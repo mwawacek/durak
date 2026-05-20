@@ -24,13 +24,33 @@ export class PlayerService {
     private readonly playerRepo?: Repository<PlayerEntity>,
   ) {}
 
-  async register(name: string, socketId: string): Promise<{ id: string; name: string }> {
+  async register(
+    name: string,
+    socketId: string,
+    previousId?: string,
+  ): Promise<{ id: string; name: string }> {
     const trimmed = name.trim();
     if (trimmed.length < NAME_MIN_LEN || trimmed.length > PLAYER_NAME_MAX_LEN) {
       throw new GameRuleError(
         ERROR_CODES.INVALID_PAYLOAD,
         `Name muss ${NAME_MIN_LEN}–${PLAYER_NAME_MAX_LEN} Zeichen lang sein`,
       );
+    }
+
+    // Fast path: client sent the playerId we previously issued them and that
+    // slot still exists in memory (i.e. we're inside the reconnect grace
+    // window). Just rebind the socket to the existing seat — this preserves
+    // room membership + ownership and avoids the duplicate-seat bug where a
+    // post-background-resume reconnect would mint a new suffixed ID.
+    if (previousId) {
+      const existing = this.onlinePlayers.get(previousId);
+      if (existing) {
+        this.socketToPlayer.delete(existing.socketId);
+        existing.socketId = socketId;
+        existing.name = trimmed;
+        this.socketToPlayer.set(socketId, previousId);
+        return { id: previousId, name: trimmed };
+      }
     }
 
     let persisted: Pick<PlayerEntity, 'id' | 'name'> | null = null;

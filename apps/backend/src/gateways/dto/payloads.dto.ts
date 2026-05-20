@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, IsString, Length, Max, Min, ValidateNested } from 'class-validator';
+import { IsInt, IsOptional, IsString, Length, Max, Min, ValidateNested } from 'class-validator';
 import {
   MAX_PLAYERS,
   MIN_PLAYERS,
@@ -13,6 +13,14 @@ export class JoinLobbyDto {
   @IsString()
   @Length(NAME_MIN_LEN, PLAYER_NAME_MAX_LEN)
   playerName!: string;
+
+  // 128 is a deliberately loose upper bound for guest/UUID ids — narrow
+  // enough to reject anything pathological, wide enough not to break if the
+  // ID scheme changes.
+  @IsOptional()
+  @IsString()
+  @Length(1, 128)
+  playerId?: string;
 }
 
 export class CreateRoomDto {

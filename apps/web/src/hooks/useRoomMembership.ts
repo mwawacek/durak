@@ -16,6 +16,13 @@ export const useRoomMembership = (roomId: string | undefined): void => {
   const setCurrentRoom = useGameStore((s) => s.setCurrentRoom);
   const lastJoinedRef = useRef<string | null>(null);
 
+  // Reset the "already tried" memory whenever the socket drops. Otherwise a
+  // reconnect lands with the same roomId in the ref and the JOIN_ROOM
+  // emission is suppressed indefinitely.
+  useEffect(() => {
+    if (!connected) lastJoinedRef.current = null;
+  }, [connected]);
+
   useEffect(() => {
     // Wait for a real JOIN_LOBBY ack: the stored playerId from LocalStorage
     // can be stale after a backend restart, and the rooms list isn't

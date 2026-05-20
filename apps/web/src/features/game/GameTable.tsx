@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   SOCKET_EVENTS,
   beats,
@@ -9,6 +10,7 @@ import { useGameStore } from '@/store/gameStore';
 import { emitAckOrToast } from '@/services/socket';
 import { useGameRules } from '@/hooks/useGameRules';
 import { vibrate } from '@/lib/vibrate';
+import { persistence } from '@/lib/persistence';
 import { OpponentRow, type SeatRole } from './OpponentRow';
 import { PlayArea } from './PlayArea';
 import { TrumpWell } from './TrumpWell';
@@ -17,6 +19,7 @@ import { BattleField } from './BattleField';
 import { PlayerHand } from './PlayerHand';
 import { ActionBar } from './ActionBar';
 import { GameOverDialog } from './GameOverDialog';
+import { LeaveConfirmDialog } from './LeaveConfirmDialog';
 
 type Selection =
   | { kind: 'none' }
@@ -38,13 +41,32 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
   const playerId = useGameStore((s) => s.playerId);
   const playerName = useGameStore((s) => s.playerName);
   const setError = useGameStore((s) => s.setError);
+  const setGame = useGameStore((s) => s.setGame);
+  const setCurrentRoom = useGameStore((s) => s.setCurrentRoom);
+  const navigate = useNavigate();
 
   const [selection, setSelection] = useState<Selection>(NO_SELECTION);
+  const [confirmLeave, setConfirmLeave] = useState(false);
   const busyRef = useRef(false);
   const [busy, setBusyVisual] = useState(false);
   const setBusy = (b: boolean) => {
     busyRef.current = b;
     setBusyVisual(b);
+  };
+
+  const handleLeave = async () => {
+    if (busyRef.current) return;
+    setBusy(true);
+    const ok = await emitAckOrToast(SOCKET_EVENTS.LEAVE_ROOM, { roomId });
+    setBusy(false);
+    if (ok !== null) {
+      // Synchronously clear local persistence + state so useBootReconnect
+      // doesn't bounce us back into the now-finished room on the next mount.
+      persistence.setLastRoom(null);
+      setGame(null);
+      setCurrentRoom(null);
+      navigate('/', { replace: true });
+    }
   };
 
   useEffect(() => {
@@ -78,7 +100,7 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
   }, [game.you.hand, selectedCardId, redirectMode, canRedirect]);
 
   const opponents = useMemo(
-    () => game.players.filter((p) => p.id !== playerId),
+    () => game.players.filter((p) => p.id !== playerId && !p.hasLeft),
     [game.players, playerId],
   );
 
@@ -224,6 +246,17 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
 
   return (
     <div className="relative flex h-dvh w-full flex-col overflow-hidden text-text-primary touch-game safe-pt safe-pb safe-pl safe-pr">
+      <button
+        type="button"
+        onClick={() => setConfirmLeave(true)}
+        disabled={busy}
+        aria-label="Tisch verlassen"
+        className="absolute left-3 top-3 z-30 inline-flex min-h-11 items-center gap-1.5 rounded-pill border border-line-mid bg-bg-card/80 px-3 py-1.5 font-sans text-[11px] font-semibold uppercase tracking-[0.14em] text-text-secondary backdrop-blur transition-colors hover:text-text-primary disabled:pointer-events-none disabled:opacity-40"
+      >
+        <span aria-hidden="true">←</span>
+        Verlassen
+      </button>
+
       <OpponentRow seats={seats} />
 
       <PlayArea awaitingDrop={!!selectedCard} empty={game.table.length === 0}>
@@ -264,7 +297,28 @@ export const GameTable = ({ game, roomId }: Props): JSX.Element => {
       </div>
 
       {isFinished ? (
-        <GameOverDialog iAmLoser={game.loserId === playerId} loserName={loser?.name ?? null} />
+        <GameOverDialog
+          iAmLoser={game.loserId === playerId}
+          loserName={loser?.name ?? null}
+          // No Durak was declared AND every other seat has hasLeft → I outlasted
+          // the table. The dialog flips to a "Du hast gewonnen" headline.
+          iWonByForfeit={
+            game.loserId === null &&
+            !game.you.hasLeft &&
+            game.players.some((p) => p.hasLeft) &&
+            game.players.every((p) => p.id === playerId || p.hasLeft)
+          }
+        />
+      ) : null}
+
+      {confirmLeave ? (
+        <LeaveConfirmDialog
+          onCancel={() => setConfirmLeave(false)}
+          onConfirm={() => {
+            setConfirmLeave(false);
+            void handleLeave();
+          }}
+        />
       ) : null}
     </div>
   );

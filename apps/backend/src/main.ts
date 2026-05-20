@@ -2,12 +2,41 @@ import 'reflect-metadata';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { NestFactory } from '@nestjs/core';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import {
+  Catch,
+  Logger,
+  NotFoundException,
+  ValidationPipe,
+  type ArgumentsHost,
+  type ExceptionFilter,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { IoAdapter } from '@nestjs/platform-socket.io';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { Express, NextFunction, Request, Response } from 'express';
+import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
+
+// SPA fallback: when a GET request slips past every controller and the static
+// middleware, Nest throws a NotFoundException — we intercept it and serve the
+// Vite build's index.html so client-side routes like /r/abc resolve. Anything
+// non-GET, or Socket.IO traffic, falls back to the standard JSON 404.
+@Catch(NotFoundException)
+class SpaFallbackFilter implements ExceptionFilter {
+  constructor(private readonly indexFile: string) {}
+
+  catch(exception: NotFoundException, host: ArgumentsHost): void {
+    const ctx = host.switchToHttp();
+    const req = ctx.getRequest<Request>();
+    const res = ctx.getResponse<Response>();
+
+    if (req.method === 'GET' && !req.path.startsWith('/socket.io')) {
+      res.sendFile(this.indexFile);
+      return;
+    }
+
+    res.status(exception.getStatus()).json(exception.getResponse());
+  }
+}
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
@@ -43,21 +72,8 @@ async function bootstrap(): Promise<void> {
   const serveWeb = webIndex !== null && existsSync(webIndex);
   if (serveWeb && webDist) {
     app.useStaticAssets(webDist, { index: false, maxAge: '1h' });
+    app.useGlobalFilters(new SpaFallbackFilter(webIndex));
     new Logger('Bootstrap').log(`Serving web bundle from ${webDist}`);
-  }
-
-  await app.init();
-
-  if (serveWeb && webIndex) {
-    // SPA fallback. Registered post-init so it sits after every controller
-    // route — /health, /socket.io polling, the static middleware all win
-    // first; only unmatched GETs (e.g. /r/abc) fall through to here.
-    const express = app.getHttpAdapter().getInstance() as Express;
-    express.get('*', (req: Request, res: Response, next: NextFunction) => {
-      if (req.method !== 'GET') return next();
-      if (req.path.startsWith('/socket.io')) return next();
-      res.sendFile(webIndex);
-    });
   }
 
   await app.listen(port, '0.0.0.0');

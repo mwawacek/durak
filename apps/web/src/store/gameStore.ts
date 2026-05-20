@@ -40,7 +40,8 @@ const roomsEqual = (a: RoomPublic[], b: RoomPublic[]): boolean => {
         px.id !== py.id ||
         px.name !== py.name ||
         px.isConnected !== py.isConnected ||
-        px.hasFinished !== py.hasFinished
+        px.hasFinished !== py.hasFinished ||
+        px.hasLeft !== py.hasLeft
       ) {
         return false;
       }

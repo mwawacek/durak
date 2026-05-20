@@ -16,6 +16,10 @@ export interface PlayerPublic {
   handCount: number;
   isConnected: boolean;
   hasFinished: boolean;
+  /** True once the player has explicitly left or timed out mid-game. Their
+   *  cards have been discarded; they no longer participate in rotation. The
+   *  UI typically hides hasLeft seats from the opponent strip. */
+  hasLeft: boolean;
 }
 
 export interface PlayerPrivate extends PlayerPublic {

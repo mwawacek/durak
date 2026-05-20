@@ -3,6 +3,7 @@ import {
   GameRuleError,
   endTurn,
   initGame,
+  leaveGame,
   pendingConfirmationIds,
   playAttack,
   playDefense,
@@ -718,5 +719,197 @@ describe('pendingConfirmationIds', () => {
 
     // Assert
     expect(result).toEqual(['p0']);
+  });
+});
+
+describe('leaveGame', () => {
+  it('discards the leaver\'s hand and keeps rotation when a pile-on neighbour goes', () => {
+    // Arrange — 3 players, p0 attacker / p1 defender / p2 pile-on neighbour.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7c'] },
+        { id: 'p1', hand: ['Ad'] },
+        { id: 'p2', hand: ['Kh', 'Qc'] },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      phase: 'attacking',
+    });
+
+    // Act
+    const result = leaveGame(s, 'p2');
+
+    // Assert
+    expect(result.players[2]!.hasLeft).toBe(true);
+    expect(result.players[2]!.hand).toEqual([]);
+    expect(result.discard.map((c) => c.id)).toEqual(
+      expect.arrayContaining([c('Kh').id, c('Qc').id]),
+    );
+    expect(result.attackerIdx).toBe(0);
+    expect(result.defenderIdx).toBe(1);
+    expect(result.phase).toBe('attacking');
+  });
+
+  it('dumps the table to discard and advances defender when defender leaves mid-defense', () => {
+    // Arrange — 3 players, p1 is defender with an attack on the table.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7c'] },
+        { id: 'p1', hand: ['Ad', '9s'] },
+        { id: 'p2', hand: ['Kh', 'Qc'] },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '7s' }],
+      phase: 'defending',
+    });
+
+    // Act
+    const result = leaveGame(s, 'p1');
+
+    // Assert
+    expect(result.players[1]!.hasLeft).toBe(true);
+    expect(result.table).toEqual([]);
+    // Both the leaver's hand AND the table attack land in discard.
+    const discardIds = result.discard.map((c) => c.id);
+    expect(discardIds).toEqual(expect.arrayContaining([c('Ad').id, c('9s').id, c('7s').id]));
+    expect(result.attackerIdx).toBe(0); // unchanged
+    expect(result.defenderIdx).toBe(2); // next active seat
+    expect(result.phase).toBe('attacking');
+  });
+
+  it('advances the main-attacker role when the attacker leaves between rounds', () => {
+    // Arrange — 3 players, table empty, p0 is the main attacker.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7c', '7s'] },
+        { id: 'p1', hand: ['Ad'] },
+        { id: 'p2', hand: ['Kh'] },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      phase: 'attacking',
+    });
+
+    // Act
+    const result = leaveGame(s, 'p0');
+
+    // Assert
+    expect(result.players[0]!.hasLeft).toBe(true);
+    expect(result.attackerIdx).toBe(2); // next active after p0
+    expect(result.defenderIdx).toBe(1); // unchanged (still valid)
+    // The leaver's hand goes to discard.
+    expect(result.discard.map((c) => c.id)).toEqual(
+      expect.arrayContaining([c('7c').id, c('7s').id]),
+    );
+  });
+
+  it('ends the game with no loser when the last opponent forfeits — remaining player wins by default', () => {
+    // Arrange — 2-player game, p0 leaves. p1 is left standing.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7c'] },
+        { id: 'p1', hand: ['Ad', '6h'] },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      // Deck still has cards: rules out the "natural Durak" branch where the
+      // single remaining player would be the loser because they couldn't get
+      // rid of their hand.
+      deck: ['8c', '8d', '8h'],
+      phase: 'attacking',
+    });
+
+    // Act
+    const result = leaveGame(s, 'p0');
+
+    // Assert — p1 wins by forfeit: no Durak is declared.
+    expect(result.phase).toBe('finished');
+    expect(result.loserId).toBeNull();
+    expect(result.players[0]!.hasLeft).toBe(true);
+  });
+
+  it('declares the still-standing player Durak when forfeit coincides with deck exhaustion', () => {
+    // Arrange — 3 players, deck empty, p0 already finished naturally. p1 leaves.
+    // p2 holds cards and can't draw — they ARE the Durak even though p1 forfeited.
+    const s = state({
+      players: [
+        { id: 'p0', hand: [], hasFinished: true },
+        { id: 'p1', hand: ['7c'] },
+        { id: 'p2', hand: ['6h', '8s'] },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 1,
+      defenderIdx: 2,
+      phase: 'attacking',
+    });
+
+    // Act
+    const result = leaveGame(s, 'p1');
+
+    // Assert — natural endgame condition holds (deck empty + 1 still in), so
+    // forfeit doesn't override: p2 is the Durak.
+    expect(result.phase).toBe('finished');
+    expect(result.loserId).toBe('p2');
+  });
+
+  it('is idempotent — calling leaveGame for a player who already left is a no-op', () => {
+    // Arrange — 3 players, p2 already marked hasLeft.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7c'] },
+        { id: 'p1', hand: ['Ad'] },
+        { id: 'p2', hand: [], hasLeft: true },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      discard: ['Kh'],
+      phase: 'attacking',
+    });
+    const discardBefore = [...s.discard];
+
+    // Act
+    const result = leaveGame(s, 'p2');
+
+    // Assert — state returned unchanged (no double-spilling).
+    expect(result).toBe(s);
+    expect(result.discard.length).toBe(discardBefore.length);
+  });
+
+  it('skips hasLeft players when refilling hands after a successful defense', () => {
+    // Arrange — 3 players. p2 has left. Table fully defended, deck has plenty
+    // of cards to refill p0 + p1 back to STARTING_HAND_SIZE.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7c'] },          // main attacker
+        { id: 'p1', hand: ['Ad'] },          // defender, defended successfully
+        { id: 'p2', hand: [], hasLeft: true }, // already left, empty hand
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '7s', defense: 'Jh' }],
+      deck: [
+        '8c', '8d', '8h', '8s',
+        '9c', '9d', '9h', '9s',
+        '10c', '10d', '10h', '10s',
+      ],
+      phase: 'attacking',
+    });
+
+    // Act — p0 calls Bito; round commits and refills.
+    const result = endTurn(s, 'p0');
+
+    // Assert — p2 still has 0 cards (refill skipped them).
+    expect(result.players[2]!.hand).toEqual([]);
+    expect(result.players[2]!.hasLeft).toBe(true);
+    // p0 and p1 should have drawn back up to STARTING_HAND_SIZE (6).
+    expect(result.players[0]!.hand.length).toBe(6);
+    expect(result.players[1]!.hand.length).toBe(6);
   });
 });

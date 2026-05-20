@@ -1,45 +1,53 @@
-# Fly.io app definition.
+# fly.toml app configuration file generated for durak-mwawa on 2026-05-18T13:43:03+02:00
 #
-# Pick your own `app` name on first deploy with: `fly launch --no-deploy`
-# (it will prompt and rewrite this file). The values below are sensible
-# defaults for a small "play with friends" deployment.
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
 
-app = 'durak'
+app = 'durak-casa'
 primary_region = 'fra'
 
 [build]
   dockerfile = 'Dockerfile'
 
 [env]
-  # Backend port matches our internal_port below.
-  PORT = '3010'
-  NODE_ENV = 'production'
-  # Restrict to your own domain once you have one; '*' is OK while you
-  # only use the *.fly.dev host because no cookies are sent.
   CORS_ORIGIN = '*'
+  NODE_ENV = 'production'
+  PORT = '3010'
 
 [http_service]
   internal_port = 3010
   force_https = true
-  # WebSockets stay alive on the same port; Socket.IO upgrades cleanly.
-  # Auto-stop the VM when idle (saves ~50% cost on light usage); a fresh
-  # request wakes it back up in ~1s (suspend) or ~3s (stop). 'suspend'
-  # keeps memory paged out so wake is faster.
+  # Keep a single machine warm — Fly's autostop accounting doesn't count
+  # Socket.IO pings as load, so without min=1 the proxy will suspend the
+  # machine mid-game and drop every live WebSocket.
   auto_stop_machines = 'suspend'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
+  # Count open WS connections as load (defence in depth — once we ever run
+  # multiple machines this lets the proxy fan out instead of stacking onto
+  # the warm one).
+  [http_service.concurrency]
+    type = 'connections'
+    soft_limit = 200
+    hard_limit = 250
+
+  # Fly's edge will close idle HTTP/WS connections after this many seconds
+  # without any data. 120s is 4× the Socket.IO 25s ping default — easy
+  # headroom for transient mobile lulls.
+  [http_service.http_options]
+    idle_timeout = 120
+
   [[http_service.checks]]
-    grace_period = '5s'
     interval = '15s'
-    method = 'GET'
     timeout = '2s'
+    grace_period = '5s'
+    method = 'GET'
     path = '/health'
 
 [[vm]]
   size = 'shared-cpu-1x'
-  # Game state is in-memory but tiny (a few KB per room). 256 MB is plenty.
-  memory_mb = 256
   cpu_kind = 'shared'
   cpus = 1
+  memory_mb = 256

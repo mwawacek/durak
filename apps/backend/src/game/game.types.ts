@@ -17,6 +17,7 @@ export interface PlayerInternal {
   isConnected: boolean;
   hasFinished: boolean;
   finishedAt: number | null;
+  hasLeft: boolean;
 }
 
 export interface GameStateInternal {
@@ -44,6 +45,7 @@ export const toPublicPlayer = (p: PlayerInternal): PlayerPublic => ({
   handCount: p.hand.length,
   isConnected: p.isConnected,
   hasFinished: p.hasFinished,
+  hasLeft: p.hasLeft,
 });
 
 export const toPrivatePlayer = (p: PlayerInternal): PlayerPrivate => ({
@@ -74,6 +76,14 @@ export const projectPrivate = (state: GameStateInternal, playerId: string): Game
     you: me
       ? toPrivatePlayer(me)
       : // Spectator fallback
-        { id: playerId, name: '', handCount: 0, isConnected: false, hasFinished: false, hand: [] },
+        {
+          id: playerId,
+          name: '',
+          handCount: 0,
+          isConnected: false,
+          hasFinished: false,
+          hasLeft: false,
+          hand: [],
+        },
   };
 };

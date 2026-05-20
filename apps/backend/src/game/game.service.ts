@@ -11,6 +11,7 @@ import {
   endTurn,
   GameRuleError,
   initGame,
+  leaveGame,
   markConnected,
   markDisconnected,
   playAttack,
@@ -82,6 +83,12 @@ export class GameService {
 
   takeCards(roomId: string, playerId: string): GameStateInternal {
     return this.apply(roomId, (s) => takeCards(s, playerId));
+  }
+
+  leave(roomId: string, playerId: string): GameStateInternal | null {
+    const current = this.games.get(roomId);
+    if (!current) return null;
+    return this.apply(roomId, (s) => leaveGame(s, playerId));
   }
 
   disconnect(roomId: string, playerId: string): GameStateInternal | null {

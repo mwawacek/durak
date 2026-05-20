@@ -36,13 +36,24 @@ import {
 type TypedServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 
-const RECONNECT_GRACE_MS = 30_000;
+// Mobile users routinely background the tab for 30-60s (notifications,
+// app-switcher, locking the screen). 30s was eating real games. 120s is
+// "go grab a coffee" tolerance — the seat stays warm and the socket can
+// reattach cleanly without anyone seeing "Tisch geschlossen".
+const RECONNECT_GRACE_MS = 120_000;
 
 // CORS mirrors main.ts: when CORS_ORIGIN is "*" we cannot send credentials
 // (browsers reject the combination), so credentials stay false.
+//
+// pingInterval/pingTimeout are tuned for mobile NAT: carriers + Fly's edge
+// idle-kill TCP at ~30-60s, so a 10s heartbeat keeps the connection
+// continuously "active" without flooding the line. Defaults (25s/20s) were
+// the dominant cause of disconnect reports in production.
 @WebSocketGateway({
   cors: { origin: process.env.CORS_ORIGIN ?? '*', credentials: false },
   transports: ['websocket', 'polling'],
+  pingInterval: 10_000,
+  pingTimeout: 20_000,
 })
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(GameGateway.name);
@@ -103,21 +114,30 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
         this.broadcastRoomState(room.id);
         continue;
       }
-      // In-game room: a player who never came back can't be safely "removed"
-      // mid-game — the engine indexes (attackerIdx/defenderIdx, rotation,
-      // pile-on neighbours) all assume the player array is stable. Abandoning
-      // the game is the safest recovery: free the engine state, mark the room
-      // finished, notify everyone in the room, and drop them all.
-      this.games.remove(room.id);
-      this.server.to(room.id).emit(SOCKET_EVENTS.ERROR_MESSAGE, {
-        code: ERROR_CODES.INTERNAL_ERROR,
-        message: 'Spieler hat das Spiel verlassen — Tisch wird geschlossen.',
-      });
-      this.rooms.finishGame(room.id);
+      // In-game timeout: same outcome as an explicit Verlassen — drop them
+      // from membership AND from the engine, the rest of the table plays on.
+      this.rooms.leave(room.id, playerId);
+      this.dropFromGame(room.id, playerId);
       this.broadcastRoomList();
       this.broadcastRoomState(room.id);
     }
     this.players.remove(playerId);
+  }
+
+  /**
+   * Eject a player from an in-progress game: their hand goes to the discard,
+   * any cards they were defending get forfeited, rotation skips their seat.
+   * The remaining players continue. If only one player is left standing the
+   * engine ends the game naturally.
+   *
+   * Caller is responsible for cleaning up room membership + socket room
+   * separately if the leave was explicit (so the projection broadcast doesn't
+   * still list them as a member).
+   */
+  private dropFromGame(roomId: string, playerId: string): void {
+    const updated = this.games.leave(roomId, playerId);
+    if (!updated) return;
+    this.afterGameMutation(roomId);
   }
 
   // ─────────────────────────────────────────────────────────────────
@@ -131,7 +151,11 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   ): Promise<AckResult<JoinLobbyResult>> {
     return this.tryAck(async () => {
       const payload = await this.validate(JoinLobbyDto, raw);
-      const { id, name } = await this.players.register(payload.playerName, client.id);
+      const { id, name } = await this.players.register(
+        payload.playerName,
+        client.id,
+        payload.playerId,
+      );
 
       // Reconnect: clear pending disconnect timer.
       const timer = this.disconnectTimers.get(id);
@@ -205,6 +229,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     return this.tryAck(async () => {
       const payload = await this.validate(RoomRefDto, raw);
       const player = this.requirePlayer(client);
+      const wasInGame = this.rooms.get(payload.roomId)?.status === 'in-game';
       const room = this.rooms.leave(payload.roomId, player.id);
       client.leave(payload.roomId);
       if (room) {
@@ -212,6 +237,9 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
           roomId: room.id,
           playerId: player.id,
         });
+        if (wasInGame) {
+          this.dropFromGame(room.id, player.id);
+        }
         this.broadcastRoomState(room.id);
       }
       this.broadcastRoomList();

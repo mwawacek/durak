@@ -158,6 +158,7 @@ export class RoomService {
         handCount: 0,
         isConnected: m.isConnected,
         hasFinished: false,
+        hasLeft: false,
       })),
     };
   }

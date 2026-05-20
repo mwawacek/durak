@@ -44,6 +44,10 @@ type Ack<T> = (result: AckResult<T>) => void;
 
 export interface JoinLobbyPayload {
   playerName: string;
+  /** Optional: client's previously-issued playerId from LocalStorage. When
+   *  present, the server reattaches the existing seat (preserving room
+   *  membership + ownership) instead of minting a new suffixed ID. */
+  playerId?: string;
 }
 export interface JoinLobbyResult {
   playerId: string;

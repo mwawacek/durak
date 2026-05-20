@@ -31,19 +31,45 @@ const resolveApiUrl = (): string => {
 };
 
 let socket: Socket | null = null;
+let visibilityWired = false;
 
 export const getSocket = (): Socket => {
   if (socket) return socket;
 
   socket = io(resolveApiUrl(), {
     autoConnect: true,
-    transports: ['websocket', 'polling'],
+    // Pinned to websocket only: silent polling fallback turns transient
+    // upgrade hiccups into long-polling sessions, which are far more
+    // disconnect-prone behind mobile NAT. Browsers we care about all
+    // support WS natively.
+    transports: ['websocket'],
     reconnection: true,
     reconnectionDelay: 500,
     reconnectionDelayMax: 4000,
     reconnectionAttempts: Infinity,
-    timeout: 10_000,
+    // 10s wasn't enough for mobile cold-start against a freshly woken
+    // Fly machine. 20s leaves headroom without users staring at a blank
+    // screen.
+    timeout: 20_000,
   });
+
+  // Mobile browsers (Safari especially) freeze JS + the WS pipe when the
+  // tab backgrounds. When the user returns, the socket often looks
+  // "connected" but every send hangs until the heartbeat times out — by
+  // then the grace window has eaten the seat. Force a fresh connect on
+  // every resume so reconnection runs immediately.
+  if (!visibilityWired && typeof document !== 'undefined') {
+    const wake = () => {
+      if (!socket || socket.connected) return;
+      socket.connect();
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') wake();
+    });
+    window.addEventListener('pageshow', wake);
+    window.addEventListener('focus', wake);
+    visibilityWired = true;
+  }
 
   return socket;
 };

@@ -27,9 +27,12 @@ export const attachSocketHandlers = (): void => {
   });
 
   socket.on('connect_error', (err) => {
+    // Don't reset lobbyJoined here — connect_error fires on every transient
+    // retry while reconnection is in flight. Flipping lobbyJoined back to
+    // false on each attempt thrashes RoomRoute into "Lade Lobby…" for the
+    // whole burst. We only invalidate it on actual `disconnect`.
     useGameStore.setState({
       connected: false,
-      lobbyJoined: false,
       lastError: `Verbindungsfehler: ${err.message}`,
     });
   });

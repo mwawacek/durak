@@ -25,8 +25,13 @@ export const useLobbyJoin = (): void => {
 
     let cancelled = false;
     (async () => {
+      // Pass our stored playerId (if any) so the server can rebind our
+      // existing seat on reconnect instead of minting a fresh suffixed id —
+      // see PlayerService.register's reattach fast-path.
+      const previousId = useGameStore.getState().playerId;
       const ack = (await emitAck(SOCKET_EVENTS.JOIN_LOBBY, {
         playerName,
+        ...(previousId ? { playerId: previousId } : {}),
       })) as AckResult<JoinLobbyResult>;
       if (cancelled) return;
       if (!ack.ok) {
