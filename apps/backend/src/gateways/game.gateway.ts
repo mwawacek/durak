@@ -42,6 +42,14 @@ type TypedSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 // reattach cleanly without anyone seeing "Tisch geschlossen".
 const RECONNECT_GRACE_MS = 120_000;
 
+// When the engine determines an auto-resolution (auto-take or auto-bito)
+// would fire, we wait this long before actually committing + broadcasting
+// the new state. Without the delay the opponent can read instant-resolution
+// timing as a "the defender was trapped" tell. A small jitter window keeps
+// the timing from being perfectly machine-predictable.
+const AUTO_RESOLVE_DELAY_MS = 3_500;
+const AUTO_RESOLVE_JITTER_MS = 500;
+
 // CORS mirrors main.ts: when CORS_ORIGIN is "*" we cannot send credentials
 // (browsers reject the combination), so credentials stay false.
 //
@@ -58,6 +66,7 @@ const RECONNECT_GRACE_MS = 120_000;
 export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
   private readonly logger = new Logger(GameGateway.name);
   private readonly disconnectTimers = new Map<string, NodeJS.Timeout>();
+  private readonly autoResolveTimers = new Map<string, NodeJS.Timeout>();
 
   @WebSocketServer()
   server!: TypedServer;
@@ -366,8 +375,10 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
   /** After every successful engine mutation, broadcast the per-player game
    *  state, optionally emit ROUND_STARTED for handlers that rotated the
-   *  round, and finalise the game if it ended. Centralises a flow that was
-   *  duplicated across all five gameplay handlers. */
+   *  round, finalise the game if it ended, and (re)evaluate whether an
+   *  auto-resolution (auto-take / auto-bito) should be scheduled. Any prior
+   *  pending auto-timer is cancelled first because the state just changed —
+   *  the new state needs a fresh look. */
   private afterGameMutation(
     roomId: string,
     options?: { roundStartedState?: GameStateInternal },
@@ -376,7 +387,8 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     if (options?.roundStartedState) {
       this.emitRoundStarted(roomId, options.roundStartedState);
     }
-    this.maybeFinishGame(roomId);
+    const finished = this.maybeFinishGame(roomId);
+    if (!finished) this.maybeScheduleAutoResolution(roomId);
   }
 
   private emitRoundStarted(roomId: string, state: GameStateInternal): void {
@@ -388,9 +400,64 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
-  private maybeFinishGame(roomId: string): void {
+  /**
+   * Cancels any existing auto-timer for the room, then asks the engine whether
+   * an auto-take / auto-bito would fire on the current state. If yes, schedules
+   * a commit + broadcast after a randomised delay so the opponent can't read
+   * resolution timing as information ("they had nothing, instant auto-take").
+   *
+   * If a user action arrives in the meantime, `afterGameMutation` re-runs this
+   * and the in-flight timer is replaced with a fresh one keyed to the new
+   * state — so a pile-on extending a stuck round, for instance, resets the
+   * clock and the trap stays opaque.
+   */
+  private maybeScheduleAutoResolution(roomId: string): void {
+    this.cancelAutoResolution(roomId);
+    const kind = this.games.pendingAutoResolution(roomId);
+    if (!kind) return;
+    const delay =
+      AUTO_RESOLVE_DELAY_MS + Math.floor(Math.random() * AUTO_RESOLVE_JITTER_MS);
+    const timer = setTimeout(() => {
+      this.autoResolveTimers.delete(roomId);
+      this.fireAutoResolution(roomId, kind);
+    }, delay);
+    this.autoResolveTimers.set(roomId, timer);
+  }
+
+  private cancelAutoResolution(roomId: string): void {
+    const existing = this.autoResolveTimers.get(roomId);
+    if (existing) {
+      clearTimeout(existing);
+      this.autoResolveTimers.delete(roomId);
+    }
+  }
+
+  /**
+   * Timer callback. Re-checks the engine condition (the state may have
+   * advanced between schedule and fire — e.g. the defender manually took, or
+   * a pile-on landed) and commits only if the original auto-resolution kind
+   * still applies. If the kind has changed, `afterGameMutation` already
+   * scheduled a fresh timer for it.
+   */
+  private fireAutoResolution(roomId: string, kind: 'take' | 'bito'): void {
+    const current = this.games.pendingAutoResolution(roomId);
+    if (current !== kind) return;
+    try {
+      if (kind === 'take') this.games.commitAutoTake(roomId);
+      else this.games.commitAutoBito(roomId);
+    } catch (err) {
+      this.logger.warn(`auto-resolution (${kind}) for ${roomId} failed: ${(err as Error).message}`);
+      return;
+    }
+    this.afterGameMutation(roomId);
+  }
+
+  /** Returns true iff the game just finished. Caller suppresses follow-up
+   *  work (like scheduling an auto-resolution) in that case. */
+  private maybeFinishGame(roomId: string): boolean {
     const snap = this.games.snapshot(roomId);
-    if (!snap || snap.phase !== 'finished') return;
+    if (!snap || snap.phase !== 'finished') return false;
+    this.cancelAutoResolution(roomId);
     this.rooms.finishGame(roomId);
     this.broadcastRoomList();
     // Persist player stats.
@@ -399,6 +466,7 @@ export class GameGateway implements OnGatewayConnection, OnGatewayDisconnect {
       const won = p.hasFinished && !wasDurak;
       void this.players.recordGameResult(p.id, won, wasDurak);
     }
+    return true;
   }
 
   // ─────────────────────────────────────────────────────────────────

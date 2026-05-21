@@ -122,13 +122,6 @@ const commitRoundEnd = (s: GameStateInternal): void => {
   s.passConfirmations.clear();
 };
 
-const tryAutoCommit = (s: GameStateInternal): void => {
-  if (s.table.length === 0 || !tableFullyDefended(s.table)) return;
-  if (computePendingIndices(s).size === 0) {
-    commitRoundEnd(s);
-  }
-};
-
 /**
  * Indices of attackers who still hold a pile-on-capable card AND haven't
  * confirmed Bito. If empty, no more attacks can land on the table.
@@ -160,23 +153,85 @@ const commitTake = (s: GameStateInternal): void => {
 };
 
 /**
- * If the defender has at least one undefended attack they cannot beat AND no
- * eligible attacker can pile on more cards, the round is stuck — the defender
- * has only one legal move (Take), so the server commits it automatically.
- *
- * The defender still has agency in two cases:
- *   1. They *could* defend (just choose not to) — auto-take won't trigger.
- *   2. They could redirect — the redirect rule short-circuits this check by
- *      requiring uniform-rank table with no defenses played; once any defense
- *      lands, redirect is off the table, so this auto-take applies.
+ * Pure predicate: would the round commit on its own right now? Fires when the
+ * table is fully defended and no attacker still has a pile-on card they
+ * haven't confirmed.
  */
-const tryAutoTake = (s: GameStateInternal): void => {
-  if (s.table.length === 0) return;
+const canAutoBito = (s: GameStateInternal): boolean => {
+  if (s.table.length === 0 || !tableFullyDefended(s.table)) return false;
+  return computePendingIndices(s).size === 0;
+};
+
+/**
+ * Pure predicate: is the defender stuck — at least one undefended attack
+ * they cannot beat AND no eligible attacker can pile on more cards. The
+ * defender has only one legal move left (Take) so the server can commit it
+ * automatically, but the timing is the caller's responsibility (the gateway
+ * delays this commit so the opponent can't read "instant resolution" as a
+ * tell that the defender was trapped).
+ *
+ * The defender still has agency in two cases that this predicate intentionally
+ * does NOT trigger on:
+ *   1. They *could* defend (just choose not to).
+ *   2. They could redirect — but the redirect rule itself requires a
+ *      uniform-rank table with no defenses played, so once any defense lands
+ *      redirect is off the table and this predicate becomes meaningful.
+ */
+const canAutoTake = (s: GameStateInternal): boolean => {
+  if (s.table.length === 0) return false;
   const undefendedCount = s.table.filter((p) => !p.defense).length;
-  if (undefendedCount === 0) return; // nothing to take
-  if (defenderCanBeatAnyUndefended(s)) return; // defender still has a move
-  if (pileOnCapableIndices(s).size > 0) return; // more pile-ons may still come
+  if (undefendedCount === 0) return false;
+  if (defenderCanBeatAnyUndefended(s)) return false;
+  if (pileOnCapableIndices(s).size > 0) return false;
+  return true;
+};
+
+/**
+ * Returns which auto-resolution would fire on this state, if any. The gateway
+ * polls this after every user action: a non-null result schedules a delayed
+ * commit so the opponent can't read the resolution timing as information.
+ *
+ * `bito` takes precedence over `take` — when the table is fully defended
+ * (`canAutoBito`), there are no undefended attacks for `canAutoTake` to fire
+ * on anyway, so the precedence is theoretical, but documented.
+ */
+export const checkAutoResolution = (
+  state: GameStateInternal,
+): 'take' | 'bito' | null => {
+  if (state.phase === 'finished') return null;
+  if (canAutoBito(state)) return 'bito';
+  if (canAutoTake(state)) return 'take';
+  return null;
+};
+
+/**
+ * Commit the pending auto-take. The gateway calls this after the delay
+ * window — it re-checks `checkAutoResolution` first because a player action
+ * in the meantime could have changed the situation, but we still validate
+ * defensively so a stale timer can't ship the wrong commit.
+ */
+export const commitAutoTake = (state: GameStateInternal): GameStateInternal => {
+  if (!canAutoTake(state)) {
+    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Auto-take no longer applicable');
+  }
+  const s = cloneState(state);
   commitTake(s);
+  checkFinished(s);
+  return s;
+};
+
+/**
+ * Commit the pending auto-bito (round end). Same defensive re-check pattern
+ * as `commitAutoTake`.
+ */
+export const commitAutoBito = (state: GameStateInternal): GameStateInternal => {
+  if (!canAutoBito(state)) {
+    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Auto-bito no longer applicable');
+  }
+  const s = cloneState(state);
+  commitRoundEnd(s);
+  checkFinished(s);
+  return s;
 };
 
 type Role = 'attacker' | 'defender' | 'any-attacker';
@@ -306,8 +361,12 @@ export const playAttack = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-take / auto-bito are scheduled by the gateway (delayed broadcast) —
+  // the engine deliberately does not commit them inline so the opponent
+  // can't read the resolution timing as a "trapped" tell. Likewise,
+  // `checkFinished` lives in the commit functions (refill is where a player
+  // actually empties their hand and gets marked done) — running it here
+  // would prematurely flag the game finished before the round resolves.
   return s;
 };
 
@@ -333,13 +392,8 @@ export const playDefense = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
-  // If the table is now fully defended and no eligible attacker can pile on,
-  // commit the round immediately — nothing to wait for.
-  tryAutoCommit(s);
-  // After a partial defense, the *remaining* undefended attacks may all be
-  // unbeatable for the defender. If pile-on is also exhausted, auto-take.
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-bito / auto-take + checkFinished are deferred to the commit
+  // functions (gateway-scheduled).
   return s;
 };
 
@@ -393,8 +447,7 @@ export const redirectAttack = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-take + checkFinished deferred to commit functions.
   return s;
 };
 
@@ -420,9 +473,7 @@ export const endTurn = (state: GameStateInternal, playerId: string): GameStateIn
   }
 
   s.passConfirmations.add(playerIdx);
-  tryAutoCommit(s);
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-bito + checkFinished deferred to commit functions.
   return s;
 };
 
@@ -571,9 +622,7 @@ export const leaveGame = (state: GameStateInternal, playerId: string): GameState
   }
   // Pile-on neighbour leaving: nothing structural to fix — nextActiveIdx
   // and eligibleAttackerIndices already skip hasLeft.
-
-  tryAutoCommit(s);
-  tryAutoTake(s);
+  // Auto-bito / auto-take are deferred to the gateway (delayed broadcast).
   checkFinished(s);
   return s;
 };

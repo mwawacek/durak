@@ -8,6 +8,9 @@ import {
   toPrivatePlayer,
 } from './game.types';
 import {
+  checkAutoResolution,
+  commitAutoBito,
+  commitAutoTake,
   endTurn,
   GameRuleError,
   initGame,
@@ -89,6 +92,22 @@ export class GameService {
     const current = this.games.get(roomId);
     if (!current) return null;
     return this.apply(roomId, (s) => leaveGame(s, playerId));
+  }
+
+  /** Returns 'take' | 'bito' | null — the gateway uses this to decide whether
+   *  to schedule a delayed auto-resolution commit after the next broadcast. */
+  pendingAutoResolution(roomId: string): 'take' | 'bito' | null {
+    const current = this.games.get(roomId);
+    if (!current) return null;
+    return checkAutoResolution(current);
+  }
+
+  commitAutoTake(roomId: string): GameStateInternal {
+    return this.apply(roomId, commitAutoTake);
+  }
+
+  commitAutoBito(roomId: string): GameStateInternal {
+    return this.apply(roomId, commitAutoBito);
   }
 
   disconnect(roomId: string, playerId: string): GameStateInternal | null {

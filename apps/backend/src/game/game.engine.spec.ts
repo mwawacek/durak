@@ -1,6 +1,9 @@
 import { ERROR_CODES } from '@durak/shared';
 import {
   GameRuleError,
+  checkAutoResolution,
+  commitAutoBito,
+  commitAutoTake,
   endTurn,
   initGame,
   leaveGame,
@@ -11,6 +14,20 @@ import {
   takeCards,
 } from './game.engine';
 import { c, state } from './_test-helpers';
+
+/**
+ * Helper: many existing tests were written when `tryAutoTake`/`tryAutoCommit`
+ * fired inline at the end of each mutator. They've now been moved to the
+ * gateway timer, so tests that want to observe the post-auto state must run
+ * the auto-resolution explicitly. This helper mirrors what the gateway does
+ * after the timer fires (re-check + commit).
+ */
+const settle = (next: ReturnType<typeof playAttack>): ReturnType<typeof playAttack> => {
+  const kind = checkAutoResolution(next);
+  if (kind === 'take') return commitAutoTake(next);
+  if (kind === 'bito') return commitAutoBito(next);
+  return next;
+};
 
 describe('initGame — first attacker', () => {
   it('picks the player holding the lowest trump card', () => {
@@ -228,7 +245,7 @@ describe('playDefense', () => {
     });
 
     // Act
-    const next = playDefense(s, 'p1', c('7s').id, c('Jh'));
+    const next = settle(playDefense(s, 'p1', c('7s').id, c('Jh')));
 
     // Assert — round committed: table empty, cards in discard, defender becomes new attacker
     expect(next.table).toEqual([]);
@@ -348,7 +365,7 @@ describe('endTurn — Bito confirmation', () => {
     });
 
     // Act — p2 confirms
-    const next = endTurn(s, 'p2');
+    const next = settle(endTurn(s, 'p2'));
 
     // Assert — committed
     expect(next.table).toEqual([]);
@@ -406,7 +423,7 @@ describe('tryAutoTake (via playAttack)', () => {
     });
 
     // Act
-    const next = playAttack(s, 'p0', c('Ks'));
+    const next = settle(playAttack(s, 'p0', c('Ks')));
 
     // Assert — auto-took: p1 has the K♠ in hand, table empty, rotation past defender
     expect(next.table).toEqual([]);
@@ -484,7 +501,7 @@ describe('simultaneous-finish loserId tracking', () => {
     s.players[0]!.finishedAt = 1;
 
     // Act — round commit triggers refillHands → marks p1 finished with Date.now()
-    const next = endTurn(s, 'p0');
+    const next = settle(endTurn(s, 'p0'));
 
     // Assert
     expect(next.phase).toBe('finished');
@@ -515,7 +532,7 @@ describe('auto-take after redirect', () => {
     });
 
     // Act
-    const next = redirectAttack(s, 'p1', c('3c'));
+    const next = settle(redirectAttack(s, 'p1', c('3c')));
 
     // Assert — both attacks landed in p2's hand
     expect(next.table).toEqual([]);
@@ -547,7 +564,7 @@ describe('Bito confirmation in a 2-player game', () => {
 
     // Act — observe pending list, then commit via Bito
     const pendingBefore = pendingConfirmationIds(s);
-    const next = endTurn(s, 'p0');
+    const next = settle(endTurn(s, 'p0'));
 
     // Assert
     expect(pendingBefore).toEqual(['p0']);
@@ -578,7 +595,7 @@ describe('refill clears trumpCard when the deck runs out', () => {
     });
 
     // Act
-    const next = endTurn(s, 'p0');
+    const next = settle(endTurn(s, 'p0'));
 
     // Assert — round committed: deck empty, trumpCard nulled, trumpSuit intact,
     // attacker now holds the J♥ in their hand (they refill first).
@@ -606,7 +623,7 @@ describe('refill clears trumpCard when the deck runs out', () => {
     });
 
     // Act
-    const next = endTurn(s, 'p0');
+    const next = settle(endTurn(s, 'p0'));
 
     // Assert
     expect(next.trumpCard).toEqual(c('Jh'));
@@ -902,8 +919,8 @@ describe('leaveGame', () => {
       phase: 'attacking',
     });
 
-    // Act — p0 calls Bito; round commits and refills.
-    const result = endTurn(s, 'p0');
+    // Act — p0 calls Bito; round commits (via auto-bito) and refills.
+    const result = settle(endTurn(s, 'p0'));
 
     // Assert — p2 still has 0 cards (refill skipped them).
     expect(result.players[2]!.hand).toEqual([]);
@@ -911,5 +928,140 @@ describe('leaveGame', () => {
     // p0 and p1 should have drawn back up to STARTING_HAND_SIZE (6).
     expect(result.players[0]!.hand.length).toBe(6);
     expect(result.players[1]!.hand.length).toBe(6);
+  });
+});
+
+describe('checkAutoResolution', () => {
+  it("returns 'take' when defender can't beat the only attack and no one can pile on", () => {
+    // Arrange — 2 players; p1 has only 6c which doesn't beat the trump-suit K
+    // and there's no rank-7 in any attacker hand to pile on.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Kd'] },
+        { id: 'p1', hand: ['6c'] },
+      ],
+      trumpSuit: 'hearts',
+      table: [{ attack: '7s' }],
+      phase: 'defending',
+    });
+
+    // Act
+    const kind = checkAutoResolution(s);
+
+    // Assert
+    expect(kind).toBe('take');
+  });
+
+  it("returns 'bito' when the table is fully defended and no eligible attacker can pile on", () => {
+    // Arrange — defender covered, attacker has no rank-7 card left.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Kd'] },
+        { id: 'p1', hand: ['5c'] }, // defended, kept this one
+      ],
+      trumpSuit: 'hearts',
+      table: [{ attack: '7s', defense: 'Jh' }],
+      phase: 'attacking',
+    });
+
+    // Act
+    const kind = checkAutoResolution(s);
+
+    // Assert
+    expect(kind).toBe('bito');
+  });
+
+  it('returns null when the defender still has a defending option', () => {
+    // Arrange — defender CAN beat the attack (J♥ trumps any non-trump).
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Kd'] },
+        { id: 'p1', hand: ['Jh', '5c'] },
+      ],
+      trumpSuit: 'hearts',
+      table: [{ attack: '7s' }],
+      phase: 'defending',
+    });
+
+    // Act
+    const kind = checkAutoResolution(s);
+
+    // Assert
+    expect(kind).toBeNull();
+  });
+
+  it('returns null when an eligible attacker can still pile on', () => {
+    // Arrange — 3 players; attacker has 7d to pile on, so auto-take must NOT fire.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['7d'] }, // can still pile on
+        { id: 'p1', hand: ['6c'] }, // defender; can't beat
+        { id: 'p2', hand: ['Kh'] },
+      ],
+      trumpSuit: 'hearts',
+      attackerIdx: 0,
+      defenderIdx: 1,
+      table: [{ attack: '7s' }],
+      phase: 'defending',
+    });
+
+    // Act
+    const kind = checkAutoResolution(s);
+
+    // Assert
+    expect(kind).toBeNull();
+  });
+
+  it('returns null when the game is already finished', () => {
+    // Arrange — phase already 'finished'; any pending state should be ignored.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Kd'] },
+        { id: 'p1', hand: ['6c'] },
+      ],
+      trumpSuit: 'hearts',
+      table: [{ attack: '7s' }],
+      phase: 'finished',
+    });
+
+    // Act
+    const kind = checkAutoResolution(s);
+
+    // Assert
+    expect(kind).toBeNull();
+  });
+});
+
+describe('commitAutoTake / commitAutoBito (defensive)', () => {
+  it('throws when commitAutoTake is called on a state where take does not apply', () => {
+    // Arrange — defender CAN beat; auto-take is not applicable.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Kd'] },
+        { id: 'p1', hand: ['Jh'] },
+      ],
+      trumpSuit: 'hearts',
+      table: [{ attack: '7s' }],
+      phase: 'defending',
+    });
+
+    // Act + Assert
+    expect(() => commitAutoTake(s)).toThrow('Auto-take no longer applicable');
+  });
+
+  it('throws when commitAutoBito is called on a state where bito does not apply', () => {
+    // Arrange — table has an undefended attack → auto-bito not applicable.
+    const s = state({
+      players: [
+        { id: 'p0', hand: ['Kd'] },
+        { id: 'p1', hand: ['Jh', '5c'] },
+      ],
+      trumpSuit: 'hearts',
+      table: [{ attack: '7s' }],
+      phase: 'defending',
+    });
+
+    // Act + Assert
+    expect(() => commitAutoBito(s)).toThrow('Auto-bito no longer applicable');
   });
 });
