@@ -1,0 +1,20 @@
+{
+  "name": "Durak",
+  "short_name": "Durak",
+  "description": "Klassisches russisches Kartenspiel, online mit Freunden.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0907",
+  "theme_color": "#0a0907",
+  "lang": "de",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

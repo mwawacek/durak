@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100dvh;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    margin: 0;
+    color: theme('colors.text.primary');
+    font-family: theme('fontFamily.sans');
+    font-feature-settings: 'kern' 1;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+    overflow: hidden;
+    overscroll-behavior: none;
+    position: fixed;
+    inset: 0;
+    width: 100%;
+
+    /* Warm-dark backdrop: top-anchored radial of the lightest brown into
+       the deeper midtone, then to the near-black base. No grain, no wood. */
+    background-color: theme('colors.bg.base');
+    background-image: radial-gradient(
+      120% 70% at 50% 0%,
+      theme('colors.bg.top') 0%,
+      theme('colors.bg.mid') 60%,
+      theme('colors.bg.base') 100%
+    );
+  }
+
+  /* Single soft coral halo above the play area to add warmth without weight. */
+  body::before {
+    content: '';
+    position: fixed;
+    left: 50%;
+    top: -40px;
+    width: 320px;
+    height: 220px;
+    transform: translateX(-50%);
+    pointer-events: none;
+    background: radial-gradient(closest-side, theme('colors.accent.glow'), transparent 70%);
+    filter: blur(20px);
+    z-index: 0;
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
+  }
+
+  button,
+  [role='button'],
+  .no-select {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  .touch-game {
+    touch-action: manipulation;
+  }
+
+  .tnum {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@layer utilities {
+  .safe-pt {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+  .safe-pb {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  .safe-pl {
+    padding-left: env(safe-area-inset-left, 0px);
+  }
+  .safe-pr {
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+  .safe-px {
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
+  }
+
+  .scroll-touch {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Label text — uppercase wide-tracked, used on TRUMPF / SPIELFELD etc. */
+  .label-eyebrow {
+    font-family: theme('fontFamily.sans');
+    font-size: 9px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: theme('colors.text.label');
+  }
+}

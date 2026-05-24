@@ -5,7 +5,6 @@ import { configuration, AppConfig } from './config/configuration';
 import { PlayerModule } from './player/player.module';
 import { RoomModule } from './room/room.module';
 import { GameModule } from './game/game.module';
-import { AuthModule } from './auth/auth.module';
 import { GameGateway } from './gateways/game.gateway';
 import { HealthController } from './health.controller';
 
@@ -39,7 +38,6 @@ const dbImports: DynamicModule[] =
       load: [configuration],
     }),
     ...dbImports,
-    AuthModule,
     PlayerModule,
     RoomModule,
     GameModule,

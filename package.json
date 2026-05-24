@@ -2,7 +2,7 @@
   "name": "durak",
   "version": "0.1.0",
   "private": true,
-  "description": "Online-Multiplayer Durak card game — NestJS backend + React Native (Expo) mobile app",
+  "description": "Online-Multiplayer Durak card game — NestJS backend + Vite/React mobile-first web client",
   "workspaces": [
     "apps/*",
     "packages/*"
@@ -13,8 +13,11 @@
     "build:backend": "npm run build --workspace @durak/shared && npm run build --workspace @durak/backend",
     "dev:backend": "npm run start:dev --workspace @durak/backend",
     "start:backend": "npm run start:prod --workspace @durak/backend",
-    "dev:mobile": "npm run start --workspace @durak/mobile",
+    "dev:web": "npm run build:shared && npm run dev --workspace @durak/web",
+    "build:web": "npm run build:shared && npm run build --workspace @durak/web",
+    "lint:web": "npm run lint --workspace @durak/web",
     "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
     "test": "npm run build:shared && npm run test --workspaces --if-present",
     "bot": "node tools/bot.mjs",
     "docker:up": "docker compose up -d --build",
@@ -28,5 +31,9 @@
   },
   "devDependencies": {
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1"
   }
 }

@@ -1,7 +1,11 @@
 import { Injectable, Logger, Optional } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+import { ERROR_CODES, NAME_MIN_LEN, PLAYER_NAME_MAX_LEN } from '@durak/shared';
 import { PlayerEntity } from './player.entity';
+import { GameRuleError } from '../game/game.engine';
+
+const GUEST_PREFIX = 'guest-';
 
 /**
  * Tracks live (socket-connected) players plus persists profile data.
@@ -20,10 +24,33 @@ export class PlayerService {
     private readonly playerRepo?: Repository<PlayerEntity>,
   ) {}
 
-  async register(name: string, socketId: string): Promise<{ id: string; name: string }> {
+  async register(
+    name: string,
+    socketId: string,
+    previousId?: string,
+  ): Promise<{ id: string; name: string }> {
     const trimmed = name.trim();
-    if (trimmed.length < 2 || trimmed.length > 32) {
-      throw new Error('Name must be 2-32 characters');
+    if (trimmed.length < NAME_MIN_LEN || trimmed.length > PLAYER_NAME_MAX_LEN) {
+      throw new GameRuleError(
+        ERROR_CODES.INVALID_PAYLOAD,
+        `Name muss ${NAME_MIN_LEN}–${PLAYER_NAME_MAX_LEN} Zeichen lang sein`,
+      );
+    }
+
+    // Fast path: client sent the playerId we previously issued them and that
+    // slot still exists in memory (i.e. we're inside the reconnect grace
+    // window). Just rebind the socket to the existing seat — this preserves
+    // room membership + ownership and avoids the duplicate-seat bug where a
+    // post-background-resume reconnect would mint a new suffixed ID.
+    if (previousId) {
+      const existing = this.onlinePlayers.get(previousId);
+      if (existing) {
+        this.socketToPlayer.delete(existing.socketId);
+        existing.socketId = socketId;
+        existing.name = trimmed;
+        this.socketToPlayer.set(socketId, previousId);
+        return { id: previousId, name: trimmed };
+      }
     }
 
     let persisted: Pick<PlayerEntity, 'id' | 'name'> | null = null;
@@ -43,14 +70,14 @@ export class PlayerService {
     // they don't hijack the first's seat.
     const slug =
       trimmed.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || 'anon';
-    let id = persisted?.id ?? `guest-${slug}`;
+    let id = persisted?.id ?? `${GUEST_PREFIX}${slug}`;
 
     if (!persisted) {
       const existing = this.onlinePlayers.get(id);
       if (existing && existing.socketId !== socketId) {
         // Real collision (different live socket): mint a new id with a suffix.
         const suffix = Math.random().toString(36).slice(2, 6);
-        id = `guest-${slug}-${suffix}`;
+        id = `${GUEST_PREFIX}${slug}-${suffix}`;
       }
     }
 
@@ -79,14 +106,6 @@ export class PlayerService {
     }
   }
 
-  handleDisconnect(socketId: string): string | null {
-    const playerId = this.socketToPlayer.get(socketId);
-    if (!playerId) return null;
-    this.socketToPlayer.delete(socketId);
-    // keep onlinePlayers entry for reconnect grace period; caller decides when to drop
-    return playerId;
-  }
-
   remove(playerId: string): void {
     const p = this.onlinePlayers.get(playerId);
     if (p) {
@@ -96,7 +115,7 @@ export class PlayerService {
   }
 
   async recordGameResult(playerId: string, won: boolean, wasDurak: boolean): Promise<void> {
-    if (!this.playerRepo || playerId.startsWith('guest-')) return;
+    if (!this.playerRepo || playerId.startsWith(GUEST_PREFIX)) return;
     try {
       await this.playerRepo
         .createQueryBuilder()

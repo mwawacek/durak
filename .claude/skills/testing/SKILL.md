@@ -24,8 +24,10 @@ description: Conventions for writing and running unit tests in this monorepo. Us
 | `apps/backend/src/game/*.ts` | `apps/backend/src/game/*.spec.ts` | `npm run test --workspace @durak/backend` |
 | All workspaces | — | `npm run test` (root) |
 
-Mobile (`apps/mobile`) has no Jest setup yet — defer until there's
-non-trivial logic outside React components.
+Web (`apps/web`) has no Jest/Vitest setup yet — defer until non-trivial
+logic lives outside the React tree. Component smoke tests can use Vitest
++ React Testing Library when added; the entry would be in
+`apps/web/src/__tests__/`.
 
 ## AAA pattern (mandatory)
 
@@ -100,7 +102,8 @@ For state machines (engine):
 
 ## What NOT to test
 
-- React Native components (no Jest setup, use the bot for end-to-end).
+- Web client components (no Jest/Vitest setup yet — use the bot + a real
+  browser tab for end-to-end).
 - Socket.IO event wiring (controllers/gateways) — that's integration
   territory; covered by manual smoke tests with the bot.
 - Third-party libs (Zustand, expo-linear-gradient, Socket.IO).

@@ -25,7 +25,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      PORT: '3000'
+      PORT: '3010'
       CORS_ORIGIN: '*'
       DB_ENABLED: 'true'
       DB_HOST: postgres
@@ -35,7 +35,7 @@ services:
       DB_NAME: durak
       DB_SYNC: 'true'
     ports:
-      - '3000:3000'
+      - '3010:3010'
 
 volumes:
   postgres-data:

@@ -1,0 +1,13 @@
+node_modules
+dist
+.vite
+*.log
+.env
+.env.local
+
+# accidental tsc emit artifacts (we use Vite for build; tsc is --noEmit only)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+*.tsbuildinfo

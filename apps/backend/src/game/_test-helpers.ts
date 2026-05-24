@@ -22,6 +22,7 @@ interface PlayerInit {
   name?: string;
   hand?: string[]; // card codes
   hasFinished?: boolean;
+  hasLeft?: boolean;
 }
 
 const NOW = 1_700_000_000_000;
@@ -33,6 +34,7 @@ export const player = (i: number, init: PlayerInit = {}): PlayerInternal => ({
   isConnected: true,
   hasFinished: init.hasFinished ?? false,
   finishedAt: init.hasFinished ? NOW : null,
+  hasLeft: init.hasLeft ?? false,
 });
 
 interface StateInit {

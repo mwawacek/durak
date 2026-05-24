@@ -1,8 +1,40 @@
+# Inputs the build doesn't need (keeps layer sends small + cache stable)
+node_modules
 **/node_modules
 **/dist
+**/.vite
 **/.expo
-**/.git
-**/.DS_Store
 **/coverage
-**/*.log
-apps/mobile
+**/*.tsbuildinfo
+
+# Local env
+.env
+.env.local
+**/.env.local
+
+# Editor / OS
+.idea
+.vscode
+.DS_Store
+*.swp
+
+# Git + docs (don't end up in container)
+.git
+.gitignore
+.github
+
+# Old/superseded artefacts
+apps/backend/Dockerfile
+docker-compose.yml
+
+# Plan docs / refactor notes — not needed in the image
+docs
+REFACTOR_PLAN.md
+REFACTOR_DONE.md
+BACKEND_NOTES.md
+README.md
+
+# Tools — bot needs shared/dist which we DO build, but the bot itself
+# doesn't ship with the server image. If you want to run it from the
+# container, drop "tools" from this ignore list.
+tools

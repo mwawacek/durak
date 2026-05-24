@@ -1,0 +1,53 @@
+# fly.toml app configuration file generated for durak-mwawa on 2026-05-18T13:43:03+02:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = 'durak-casa'
+primary_region = 'fra'
+
+[build]
+  dockerfile = 'Dockerfile'
+
+[env]
+  CORS_ORIGIN = '*'
+  NODE_ENV = 'production'
+  PORT = '3010'
+
+[http_service]
+  internal_port = 3010
+  force_https = true
+  # Keep a single machine warm — Fly's autostop accounting doesn't count
+  # Socket.IO pings as load, so without min=1 the proxy will suspend the
+  # machine mid-game and drop every live WebSocket.
+  auto_stop_machines = 'suspend'
+  auto_start_machines = true
+  min_machines_running = 1
+  processes = ['app']
+
+  # Count open WS connections as load (defence in depth — once we ever run
+  # multiple machines this lets the proxy fan out instead of stacking onto
+  # the warm one).
+  [http_service.concurrency]
+    type = 'connections'
+    soft_limit = 200
+    hard_limit = 250
+
+  # Fly's edge will close idle HTTP/WS connections after this many seconds
+  # without any data. 120s is 4× the Socket.IO 25s ping default — easy
+  # headroom for transient mobile lulls.
+  [http_service.http_options]
+    idle_timeout = 120
+
+  [[http_service.checks]]
+    interval = '15s'
+    timeout = '2s'
+    grace_period = '5s'
+    method = 'GET'
+    path = '/health'
+
+[[vm]]
+  size = 'shared-cpu-1x'
+  cpu_kind = 'shared'
+  cpus = 1
+  memory_mb = 256

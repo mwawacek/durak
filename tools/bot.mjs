@@ -4,16 +4,23 @@
  * (oder erstellt selbst einen) und spielt regelkonforme, einfache Züge.
  *
  * Nutzung:
- *   node tools/bot.mjs [name] [--host http://localhost:3000] [--room <roomId>] [--host-room]
+ *   node tools/bot.mjs [name] [--host http://localhost:3010] [--room <roomId>] [--host-room]
  *
  * Beispiele:
  *   node tools/bot.mjs               # Bot "Bot-1", tritt dem ersten offenen Raum bei
  *   node tools/bot.mjs Olga          # Bot mit Namen "Olga"
  *   node tools/bot.mjs Olga --host-room  # Bot erstellt + hostet einen Raum und wartet
- *   node tools/bot.mjs --host http://192.168.1.23:3000
+ *   node tools/bot.mjs --host http://192.168.1.23:3010
  */
 import { io } from '../node_modules/socket.io-client/build/esm/index.js';
-import { SOCKET_EVENTS, RANK_ORDER, beats, ranksOnTable } from '../packages/shared/dist/index.js';
+import {
+  SOCKET_EVENTS,
+  RANK_ORDER,
+  beats,
+  canPileOn,
+  MAX_TABLE_PAIRS,
+  SOCKET_ACK_TIMEOUT_MS,
+} from '../packages/shared/dist/index.js';
 
 const args = process.argv.slice(2);
 const flagIdx = args.findIndex((a) => a.startsWith('--'));
@@ -23,13 +30,13 @@ const getFlag = (flag) => {
   const i = args.indexOf(flag);
   return i >= 0 ? args[i + 1] : undefined;
 };
-const HOST = getFlag('--host') ?? 'http://localhost:3000';
+const HOST = getFlag('--host') ?? 'http://localhost:3010';
 const ROOM_ID = getFlag('--room');
 const HOST_ROOM = args.includes('--host-room');
 
 const ack = (socket, event, ...payload) =>
   new Promise((resolve, reject) => {
-    socket.timeout(10_000).emit(event, ...payload, (err, res) =>
+    socket.timeout(SOCKET_ACK_TIMEOUT_MS).emit(event, ...payload, (err, res) =>
       err ? reject(err) : resolve(res),
     );
   });
@@ -69,9 +76,14 @@ const pickMove = (game, myId, roomId) => {
 
   // Bito-Bestätigung (kann sowohl Hauptangreifer als auch Nachbar sein):
   // Wenn ich noch eine günstige passende Karte habe → nachlegen, sonst bestätigen.
+  // canPileOn() respektiert MAX_TABLE_PAIRS und die undefendedCount-Kapazität —
+  // sonst würde die Engine den Wurf ablehnen und das Log floodet mit "move rejected".
   if (needsMyConfirmation) {
-    const tableRanks = ranksOnTable(game.table);
-    const pileable = game.you.hand.filter((c) => tableRanks.has(c.rank));
+    const defender = game.players.find((p) => p.id === game.defenderId);
+    const defenderHandCount = defender?.handCount ?? 0;
+    const pileable = game.you.hand.filter((c) =>
+      canPileOn(c, game.table, defenderHandCount, MAX_TABLE_PAIRS),
+    );
     const cheap = cheapestNonTrumpFirst(pileable, game.trumpSuit).find(
       (c) => c.suit !== game.trumpSuit,
     );

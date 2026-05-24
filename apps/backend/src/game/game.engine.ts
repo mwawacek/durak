@@ -40,12 +40,14 @@ const removeFromHand = (p: PlayerInternal, card: Card): void => {
   p.hand.splice(i, 1);
 };
 
+const isActive = (p: PlayerInternal): boolean => !p.hasFinished && !p.hasLeft;
+
 const nextActiveIdx = (s: GameStateInternal, startIdx: number, skipIdx?: number): number => {
   const n = s.players.length;
   for (let step = 1; step <= n; step++) {
     const idx = (startIdx + step) % n;
     if (idx === skipIdx) continue;
-    if (!s.players[idx]!.hasFinished) return idx;
+    if (isActive(s.players[idx]!)) return idx;
   }
   return startIdx;
 };
@@ -54,7 +56,7 @@ const prevActiveIdx = (s: GameStateInternal, startIdx: number): number => {
   const n = s.players.length;
   for (let step = 1; step <= n; step++) {
     const idx = (startIdx - step + n) % n;
-    if (!s.players[idx]!.hasFinished) return idx;
+    if (isActive(s.players[idx]!)) return idx;
   }
   return startIdx;
 };
@@ -81,22 +83,28 @@ const playerHasPileOnCard = (player: PlayerInternal, table: AttackPair[]): boole
  * Auto-pass: an eligible attacker is excluded from this set if they have no
  * pile-on-capable card (no rank match) — there's nothing to wait on them for.
  */
-const computePendingIndices = (s: GameStateInternal): Set<number> => {
-  if (s.table.length === 0 || !tableFullyDefended(s.table)) return new Set();
-  if (s.table.length >= MAX_TABLE_PAIRS) return new Set(); // table full → no more pile-on possible
+/** Attackers (eligible neighbours + main attacker) who can still pile on
+ *  given the table capacity and the defender's hand. Used by both
+ *  computePendingIndices (filtered further by tableFullyDefended) and
+ *  pileOnCapableIndices. */
+const eligibleAttackerIndices = (s: GameStateInternal): Set<number> => {
+  const out = new Set<number>();
   const defender = s.players[s.defenderIdx];
-  if (!defender || defender.hand.length === 0) return new Set(); // no defender capacity
-
-  const eligible = neighborAttackers(s);
-  const pending = new Set<number>();
-  for (const idx of eligible) {
+  if (!defender || defender.hand.length === 0) return out;
+  if (s.table.length >= MAX_TABLE_PAIRS) return out;
+  for (const idx of neighborAttackers(s)) {
     if (s.passConfirmations.has(idx)) continue;
     const player = s.players[idx]!;
-    if (player.hasFinished) continue;
+    if (!isActive(player)) continue;
     if (!playerHasPileOnCard(player, s.table)) continue;
-    pending.add(idx);
+    out.add(idx);
   }
-  return pending;
+  return out;
+};
+
+const computePendingIndices = (s: GameStateInternal): Set<number> => {
+  if (s.table.length === 0 || !tableFullyDefended(s.table)) return new Set();
+  return eligibleAttackerIndices(s);
 };
 
 export const pendingConfirmationIds = (s: GameStateInternal): string[] => {
@@ -114,31 +122,12 @@ const commitRoundEnd = (s: GameStateInternal): void => {
   s.passConfirmations.clear();
 };
 
-const tryAutoCommit = (s: GameStateInternal): void => {
-  if (s.table.length === 0 || !tableFullyDefended(s.table)) return;
-  if (computePendingIndices(s).size === 0) {
-    commitRoundEnd(s);
-  }
-};
-
 /**
  * Indices of attackers who still hold a pile-on-capable card AND haven't
  * confirmed Bito. If empty, no more attacks can land on the table.
  */
-const pileOnCapableIndices = (s: GameStateInternal): Set<number> => {
-  const eligible = neighborAttackers(s);
-  const out = new Set<number>();
-  const defender = s.players[s.defenderIdx];
-  if (!defender || defender.hand.length === 0) return out;
-  if (s.table.length >= MAX_TABLE_PAIRS) return out;
-  for (const idx of eligible) {
-    if (s.passConfirmations.has(idx)) continue;
-    const player = s.players[idx]!;
-    if (player.hasFinished) continue;
-    if (playerHasPileOnCard(player, s.table)) out.add(idx);
-  }
-  return out;
-};
+const pileOnCapableIndices = (s: GameStateInternal): Set<number> =>
+  eligibleAttackerIndices(s);
 
 const defenderCanBeatAnyUndefended = (s: GameStateInternal): boolean => {
   const defender = s.players[s.defenderIdx];
@@ -164,23 +153,85 @@ const commitTake = (s: GameStateInternal): void => {
 };
 
 /**
- * If the defender has at least one undefended attack they cannot beat AND no
- * eligible attacker can pile on more cards, the round is stuck — the defender
- * has only one legal move (Take), so the server commits it automatically.
- *
- * The defender still has agency in two cases:
- *   1. They *could* defend (just choose not to) — auto-take won't trigger.
- *   2. They could redirect — the redirect rule short-circuits this check by
- *      requiring uniform-rank table with no defenses played; once any defense
- *      lands, redirect is off the table, so this auto-take applies.
+ * Pure predicate: would the round commit on its own right now? Fires when the
+ * table is fully defended and no attacker still has a pile-on card they
+ * haven't confirmed.
  */
-const tryAutoTake = (s: GameStateInternal): void => {
-  if (s.table.length === 0) return;
+const canAutoBito = (s: GameStateInternal): boolean => {
+  if (s.table.length === 0 || !tableFullyDefended(s.table)) return false;
+  return computePendingIndices(s).size === 0;
+};
+
+/**
+ * Pure predicate: is the defender stuck — at least one undefended attack
+ * they cannot beat AND no eligible attacker can pile on more cards. The
+ * defender has only one legal move left (Take) so the server can commit it
+ * automatically, but the timing is the caller's responsibility (the gateway
+ * delays this commit so the opponent can't read "instant resolution" as a
+ * tell that the defender was trapped).
+ *
+ * The defender still has agency in two cases that this predicate intentionally
+ * does NOT trigger on:
+ *   1. They *could* defend (just choose not to).
+ *   2. They could redirect — but the redirect rule itself requires a
+ *      uniform-rank table with no defenses played, so once any defense lands
+ *      redirect is off the table and this predicate becomes meaningful.
+ */
+const canAutoTake = (s: GameStateInternal): boolean => {
+  if (s.table.length === 0) return false;
   const undefendedCount = s.table.filter((p) => !p.defense).length;
-  if (undefendedCount === 0) return; // nothing to take
-  if (defenderCanBeatAnyUndefended(s)) return; // defender still has a move
-  if (pileOnCapableIndices(s).size > 0) return; // more pile-ons may still come
+  if (undefendedCount === 0) return false;
+  if (defenderCanBeatAnyUndefended(s)) return false;
+  if (pileOnCapableIndices(s).size > 0) return false;
+  return true;
+};
+
+/**
+ * Returns which auto-resolution would fire on this state, if any. The gateway
+ * polls this after every user action: a non-null result schedules a delayed
+ * commit so the opponent can't read the resolution timing as information.
+ *
+ * `bito` takes precedence over `take` — when the table is fully defended
+ * (`canAutoBito`), there are no undefended attacks for `canAutoTake` to fire
+ * on anyway, so the precedence is theoretical, but documented.
+ */
+export const checkAutoResolution = (
+  state: GameStateInternal,
+): 'take' | 'bito' | null => {
+  if (state.phase === 'finished') return null;
+  if (canAutoBito(state)) return 'bito';
+  if (canAutoTake(state)) return 'take';
+  return null;
+};
+
+/**
+ * Commit the pending auto-take. The gateway calls this after the delay
+ * window — it re-checks `checkAutoResolution` first because a player action
+ * in the meantime could have changed the situation, but we still validate
+ * defensively so a stale timer can't ship the wrong commit.
+ */
+export const commitAutoTake = (state: GameStateInternal): GameStateInternal => {
+  if (!canAutoTake(state)) {
+    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Auto-take no longer applicable');
+  }
+  const s = cloneState(state);
   commitTake(s);
+  checkFinished(s);
+  return s;
+};
+
+/**
+ * Commit the pending auto-bito (round end). Same defensive re-check pattern
+ * as `commitAutoTake`.
+ */
+export const commitAutoBito = (state: GameStateInternal): GameStateInternal => {
+  if (!canAutoBito(state)) {
+    throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Auto-bito no longer applicable');
+  }
+  const s = cloneState(state);
+  commitRoundEnd(s);
+  checkFinished(s);
+  return s;
 };
 
 type Role = 'attacker' | 'defender' | 'any-attacker';
@@ -224,6 +275,7 @@ export const initGame = ({ roomId, players, deck, dealerIdx, now }: InitArgs): G
     isConnected: true,
     hasFinished: false,
     finishedAt: null,
+    hasLeft: false,
   }));
 
   const deckCopy = [...deck];
@@ -309,8 +361,12 @@ export const playAttack = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-take / auto-bito are scheduled by the gateway (delayed broadcast) —
+  // the engine deliberately does not commit them inline so the opponent
+  // can't read the resolution timing as a "trapped" tell. Likewise,
+  // `checkFinished` lives in the commit functions (refill is where a player
+  // actually empties their hand and gets marked done) — running it here
+  // would prematurely flag the game finished before the round resolves.
   return s;
 };
 
@@ -336,13 +392,8 @@ export const playDefense = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
-  // If the table is now fully defended and no eligible attacker can pile on,
-  // commit the round immediately — nothing to wait for.
-  tryAutoCommit(s);
-  // After a partial defense, the *remaining* undefended attacks may all be
-  // unbeatable for the defender. If pile-on is also exhausted, auto-take.
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-bito / auto-take + checkFinished are deferred to the commit
+  // functions (gateway-scheduled).
   return s;
 };
 
@@ -396,8 +447,7 @@ export const redirectAttack = (
   s.turnStartedAt = Date.now();
   s.passConfirmations.clear();
 
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-take + checkFinished deferred to commit functions.
   return s;
 };
 
@@ -423,9 +473,7 @@ export const endTurn = (state: GameStateInternal, playerId: string): GameStateIn
   }
 
   s.passConfirmations.add(playerIdx);
-  tryAutoCommit(s);
-  tryAutoTake(s);
-  checkFinished(s);
+  // Auto-bito + checkFinished deferred to commit functions.
   return s;
 };
 
@@ -436,15 +484,7 @@ export const takeCards = (state: GameStateInternal, playerId: string): GameState
     throw new GameRuleError(ERROR_CODES.INVALID_MOVE, 'Table empty');
   }
 
-  const defender = s.players[s.defenderIdx]!;
-  for (const pair of s.table) {
-    defender.hand.push(pair.attack);
-    if (pair.defense) defender.hand.push(pair.defense);
-  }
-  s.table = [];
-
-  refillHands(s, s.attackerIdx);
-  rotateAfterFailure(s);
+  commitTake(s);
   checkFinished(s);
   return s;
 };
@@ -461,7 +501,7 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
 
   for (const idx of order) {
     const p = s.players[idx]!;
-    if (p.hasFinished) continue;
+    if (!isActive(p)) continue;
     while (p.hand.length < STARTING_HAND_SIZE && s.deck.length > 0) {
       const card = s.deck.shift()!;
       p.hand.push(card);
@@ -477,7 +517,7 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
   }
 
   for (const p of s.players) {
-    if (!p.hasFinished && s.deck.length === 0 && p.hand.length === 0) {
+    if (isActive(p) && s.deck.length === 0 && p.hand.length === 0) {
       p.hasFinished = true;
       p.finishedAt = Date.now();
     }
@@ -486,10 +526,10 @@ const refillHands = (s: GameStateInternal, firstIdx: number): void => {
 
 const rotateAfterSuccess = (s: GameStateInternal): void => {
   const newAttacker = s.defenderIdx;
-  if (s.players[newAttacker]!.hasFinished) {
-    s.attackerIdx = nextActiveIdx(s, newAttacker);
-  } else {
+  if (isActive(s.players[newAttacker]!)) {
     s.attackerIdx = newAttacker;
+  } else {
+    s.attackerIdx = nextActiveIdx(s, newAttacker);
   }
   s.defenderIdx = nextActiveIdx(s, s.attackerIdx);
   s.phase = 'attacking';
@@ -504,32 +544,107 @@ const rotateAfterFailure = (s: GameStateInternal): void => {
 };
 
 const checkFinished = (s: GameStateInternal): void => {
-  const activePlayers = s.players.filter((p) => !p.hasFinished);
-  if (activePlayers.length <= 1 && s.deck.length === 0) {
-    s.phase = 'finished';
-    if (activePlayers.length === 1) {
-      s.loserId = activePlayers[0]!.id;
+  const stillIn = s.players.filter((p) => isActive(p));
+  // Natural endgame: deck drained and ≤1 player still holds cards.
+  // Forfeit endgame: someone left, and ≤1 player remains who can still play.
+  const natural = stillIn.length <= 1 && s.deck.length === 0;
+  const forfeit = stillIn.length <= 1 && s.players.some((p) => p.hasLeft);
+  if (!natural && !forfeit) return;
+
+  s.phase = 'finished';
+  if (stillIn.length === 1) {
+    // Pure forfeit (no natural end yet) — the last player standing won by
+    // outlasting everyone else. No Durak. If both conditions apply (deck
+    // also empty), natural takes precedence: they're holding cards they
+    // couldn't get rid of, so they're the Durak after all.
+    if (forfeit && !natural) {
+      s.loserId = null;
     } else {
-      // Edge case: everyone finished on the same step (e.g. last refill drained
-      // both hands). The "natural durak" is whoever finished LAST.
-      const last = s.players
-        .filter((p) => p.finishedAt !== null)
-        .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
-      s.loserId = last?.id ?? null;
+      s.loserId = stillIn[0]!.id;
     }
+  } else {
+    // Edge case: everyone finished on the same step (e.g. last refill drained
+    // both hands). The "natural durak" is whoever finished LAST.
+    const last = s.players
+      .filter((p) => p.finishedAt !== null)
+      .sort((a, b) => (b.finishedAt ?? 0) - (a.finishedAt ?? 0))[0];
+    s.loserId = last?.id ?? null;
   }
 };
 
-export const markDisconnected = (state: GameStateInternal, playerId: string): GameStateInternal => {
+/**
+ * Player leaves mid-game (explicit "Verlassen" or timeout past the reconnect
+ * grace). Their cards are forfeited to the discard pile and the turn state
+ * is rotated so the remaining players can continue without the engine's
+ * stable-seat-array invariants being violated.
+ *
+ * No-ops if the player isn't in the game, has already left, has already
+ * finished, or the game is already over.
+ */
+export const leaveGame = (state: GameStateInternal, playerId: string): GameStateInternal => {
+  if (state.phase === 'finished') return state;
+  const idx = state.players.findIndex((p) => p.id === playerId);
+  if (idx < 0) return state;
+  const existing = state.players[idx]!;
+  if (existing.hasLeft || existing.hasFinished) return state;
+
   const s = cloneState(state);
-  const p = s.players.find((pl) => pl.id === playerId);
-  if (p) p.isConnected = false;
+  const me = s.players[idx]!;
+  me.hasLeft = true;
+  s.discard.push(...me.hand);
+  me.hand = [];
+  s.passConfirmations.delete(idx);
+
+  if (idx === s.defenderIdx) {
+    // Defender abandoned. Any cards on the table go to the discard (no one
+    // picks them up — that "loss" is the cost of leaving). Hands refill so
+    // the next round starts clean.
+    if (s.table.length > 0) {
+      for (const pair of s.table) {
+        s.discard.push(pair.attack);
+        if (pair.defense) s.discard.push(pair.defense);
+      }
+      s.table = [];
+      s.passConfirmations.clear();
+      refillHands(s, s.attackerIdx);
+    }
+    // Same attacker continues; defender role advances to the next active seat.
+    s.defenderIdx = nextActiveIdx(s, s.attackerIdx);
+    s.phase = 'attacking';
+    s.turnStartedAt = Date.now();
+  } else if (idx === s.attackerIdx) {
+    // Main attacker walked. Defender keeps defending whatever's already on
+    // the table; the main-attacker role passes to the next active seat that
+    // isn't the defender (`nextActiveIdx` accepts a skip index for exactly
+    // this) so we don't accidentally rotate the defender into the attacker
+    // slot.
+    s.attackerIdx = nextActiveIdx(s, idx, s.defenderIdx);
+  }
+  // Pile-on neighbour leaving: nothing structural to fix — nextActiveIdx
+  // and eligibleAttackerIndices already skip hasLeft.
+  // Auto-bito / auto-take are deferred to the gateway (delayed broadcast).
+  checkFinished(s);
   return s;
 };
 
-export const markConnected = (state: GameStateInternal, playerId: string): GameStateInternal => {
+const setConnected = (
+  state: GameStateInternal,
+  playerId: string,
+  isConnected: boolean,
+): GameStateInternal => {
   const s = cloneState(state);
-  const p = s.players.find((pl) => pl.id === playerId);
-  if (p) p.isConnected = true;
+  const idx = s.players.findIndex((p) => p.id === playerId);
+  if (idx === -1) return state;
+  s.players[idx]!.isConnected = isConnected;
   return s;
 };
+
+export const markDisconnected = (
+  state: GameStateInternal,
+  playerId: string,
+): GameStateInternal => setConnected(state, playerId, false);
+
+export const markConnected = (
+  state: GameStateInternal,
+  playerId: string,
+): GameStateInternal => setConnected(state, playerId, true);

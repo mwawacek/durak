@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Card, GameStatePrivate } from '@durak/shared';
+import { Card, ERROR_CODES, GameStatePrivate } from '@durak/shared';
 import { DeckService } from './deck.service';
 import {
   GameStateInternal,
@@ -8,8 +8,13 @@ import {
   toPrivatePlayer,
 } from './game.types';
 import {
+  checkAutoResolution,
+  commitAutoBito,
+  commitAutoTake,
   endTurn,
+  GameRuleError,
   initGame,
+  leaveGame,
   markConnected,
   markDisconnected,
   playAttack,
@@ -33,7 +38,10 @@ export class GameService {
 
   create(roomId: string, players: { id: string; name: string }[], dealerIdx = 0): GameStateInternal {
     if (this.games.has(roomId)) {
-      throw new Error(`Game for room ${roomId} already exists`);
+      throw new GameRuleError(
+        ERROR_CODES.GAME_ALREADY_STARTED,
+        `Game for room ${roomId} already exists`,
+      );
     }
     const deck = this.deck.shuffle(this.deck.buildDeck());
     const state = initGame({ roomId, players, deck, dealerIdx, now: Date.now() });
@@ -52,7 +60,9 @@ export class GameService {
 
   private apply(roomId: string, mutation: GameMutation): GameStateInternal {
     const current = this.games.get(roomId);
-    if (!current) throw new Error(`No game for room ${roomId}`);
+    if (!current) {
+      throw new GameRuleError(ERROR_CODES.ROOM_NOT_FOUND, `No game for room ${roomId}`);
+    }
     const next = mutation(current);
     this.games.set(roomId, next);
     return next;
@@ -76,6 +86,28 @@ export class GameService {
 
   takeCards(roomId: string, playerId: string): GameStateInternal {
     return this.apply(roomId, (s) => takeCards(s, playerId));
+  }
+
+  leave(roomId: string, playerId: string): GameStateInternal | null {
+    const current = this.games.get(roomId);
+    if (!current) return null;
+    return this.apply(roomId, (s) => leaveGame(s, playerId));
+  }
+
+  /** Returns 'take' | 'bito' | null — the gateway uses this to decide whether
+   *  to schedule a delayed auto-resolution commit after the next broadcast. */
+  pendingAutoResolution(roomId: string): 'take' | 'bito' | null {
+    const current = this.games.get(roomId);
+    if (!current) return null;
+    return checkAutoResolution(current);
+  }
+
+  commitAutoTake(roomId: string): GameStateInternal {
+    return this.apply(roomId, commitAutoTake);
+  }
+
+  commitAutoBito(roomId: string): GameStateInternal {
+    return this.apply(roomId, commitAutoBito);
   }
 
   disconnect(roomId: string, playerId: string): GameStateInternal | null {
@@ -115,11 +147,5 @@ export class GameService {
   /** Used to derive per-player broadcasts. */
   snapshot(roomId: string): GameStateInternal | null {
     return this.games.get(roomId) ?? null;
-  }
-
-  /** Debug dump (no hands). */
-  publicSnapshot(roomId: string) {
-    const s = this.games.get(roomId);
-    return s ? projectPublic(s) : null;
   }
 }

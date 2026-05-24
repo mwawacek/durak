@@ -26,14 +26,28 @@ export const SOCKET_EVENTS = {
 
 export type SocketEventName = (typeof SOCKET_EVENTS)[keyof typeof SOCKET_EVENTS];
 
+/** Default ack timeout (ms) used by all socket-emit helpers. */
+export const SOCKET_ACK_TIMEOUT_MS = 10_000;
+
+/** Lower bound (inclusive) for any user-facing display name. */
+export const NAME_MIN_LEN = 2;
+/** Upper bound (inclusive) for a player display name. */
+export const PLAYER_NAME_MAX_LEN = 32;
+/** Upper bound (inclusive) for a room display name. */
+export const ROOM_NAME_MAX_LEN = 48;
+
 export type AckResult<T> =
   | { ok: true; data: T }
-  | { ok: false; error: { code: string; message: string } };
+  | { ok: false; error: { code: ErrorCode; message: string } };
 
 type Ack<T> = (result: AckResult<T>) => void;
 
 export interface JoinLobbyPayload {
   playerName: string;
+  /** Optional: client's previously-issued playerId from LocalStorage. When
+   *  present, the server reattaches the existing seat (preserving room
+   *  membership + ownership) instead of minting a new suffixed ID. */
+  playerId?: string;
 }
 export interface JoinLobbyResult {
   playerId: string;
@@ -107,7 +121,7 @@ export interface ServerToClientEvents {
   [SOCKET_EVENTS.PLAYER_JOINED]: (payload: { roomId: string; playerId: string; playerName: string }) => void;
   [SOCKET_EVENTS.PLAYER_LEFT]: (payload: { roomId: string; playerId: string }) => void;
   [SOCKET_EVENTS.ROUND_STARTED]: (payload: { roomId: string; attackerId: string; defenderId: string }) => void;
-  [SOCKET_EVENTS.ERROR_MESSAGE]: (payload: { code: string; message: string }) => void;
+  [SOCKET_EVENTS.ERROR_MESSAGE]: (payload: { code: ErrorCode; message: string }) => void;
 }
 
 export const ERROR_CODES = {
