@@ -10,6 +10,27 @@ This skill is the single source of truth for the rules implemented in
 `packages/shared/src/rules.ts`. Whenever a rule is modified, **update this
 file in the same change** so future sessions don't drift.
 
+## Game modes
+
+There is **only one mode today: Standard**. Everything below describes
+Standard. Future custom modes (e.g. "Podkidnoy with translations off",
+"Throwing-in only from main attacker", "Schwert / Sword variant",
+"Trumpless") will live as documented deltas under a `## Variants`
+section once they exist. Before adding a variant:
+
+1. Decide whether the variant is a runtime toggle on `GameStateInternal`
+   (preferred — single engine, branching helpers) or a parallel engine.
+2. Add a `mode: 'standard' | '<variant>'` field to the room/game create
+   payload (`packages/shared/src/events.ts` → CreateRoomPayload).
+3. Engine branches on `state.mode` inside the affected mutators. Keep
+   the rule helpers (`beats`, `canRedirectWith`, …) pure — pass `mode`
+   in if needed instead of reading global state.
+4. Document the delta here under `## Variants` with: name, payload key,
+   diff vs Standard, affected engine functions, affected UI affordances.
+
+Tests for variants live next to the standard tests in
+`game.engine.spec.ts` with `describe('<variant> mode', …)` blocks.
+
 ## Setup
 
 - 36-card deck (6 through Ace, 4 suits).
@@ -81,10 +102,10 @@ file in the same change** so future sessions don't drift.
     (attacker first, defender last), and the defender becomes the next
     attacker.
 - Exposed publicly via `GameStatePublic.pendingConfirmations: string[]`.
-- Implemented in `endTurn`, `computePendingIndices`, `commitRoundEnd`, and
-  `tryAutoCommit` in the engine. `tryAutoCommit` is also called from
-  `playDefense` so that the auto-pass case (no one can pile on) commits the
-  round instantly when the last defense lands — no UI button required.
+- Implemented in `endTurn`, `computePendingIndices`, and `commitRoundEnd`
+  in the engine. The auto-pass case (no eligible attacker can pile on)
+  no longer commits inline — it is scheduled by the gateway as a
+  delayed auto-resolution (see **Auto-resolution timing** below).
 
 ## "Take" — defender concedes
 
@@ -105,16 +126,52 @@ moves left:
 - No eligible attacker has a pile-on-capable card
   (`pileOnCapableIndices(s).size === 0`).
 
-Implemented in `tryAutoTake(s)`. Called from `playAttack`, `playDefense`,
-`redirectAttack`, and `endTurn` — i.e. after every event that might bring
-the round into a stuck state. Defender keeps agency in two cases:
+The engine exposes this as a **pure predicate** —
+`checkAutoResolution(state): 'take' | 'bito' | null` — and the actual
+commit lives in separate explicit mutators `commitAutoTake(state)` /
+`commitAutoBito(state)`. The mutators throw if the predicate no longer
+holds (defensive: the gateway always re-checks before calling them).
+
+Mutators (`playAttack`, `playDefense`, `redirectAttack`, `endTurn`,
+`takeCards`, `leaveGame`) do **not** chain into auto-resolution
+themselves — that runs through the gateway timer (see next section).
+
+Defender keeps agency in two cases:
 
 1. They *could* defend but choose to take strategically → must press
-   "Nehmen" manually (auto-take won't fire because
+   "Nehmen" manually (auto-take predicate is false because
    `defenderCanBeatAnyUndefended` is still true).
 2. They could redirect (Weiterschieben) → handled separately; redirect
    precondition (uniform-rank, no defenses yet) is independent of
    auto-take.
+
+## Auto-resolution timing (gateway-scheduled)
+
+Auto-take and auto-bito are **delayed**, not instant. After every state
+mutation `GameGateway.afterGameMutation` runs
+`maybeScheduleAutoResolution`:
+
+1. Cancel any pending auto-resolution timer for the room.
+2. Ask the engine via `checkAutoResolution(state)`. If `null`, stop.
+3. Otherwise schedule a `setTimeout` for
+   `AUTO_RESOLVE_DELAY_MS (3500) + Math.random() * AUTO_RESOLVE_JITTER_MS (500)`
+   — i.e. **3.5 – 4.0 seconds**.
+4. On fire, re-check `pendingAutoResolution`. If the kind still matches,
+   call `commitAutoTake` / `commitAutoBito` and broadcast. If the state
+   has moved on (defender manually took, pile-on landed and removed the
+   stuck condition, etc.), do nothing — the next `afterGameMutation`
+   already scheduled the correct follow-up.
+
+**Why the delay** — without it, a stuck round used to resolve in the
+same socket round-trip as the move that made it stuck, leaking
+information ("opponent had no card → auto-take fired instantly →
+they were trapped"). The 3.5 – 4.0 s window with re-evaluation on every
+intervening action makes trap timing indistinguishable from a normal
+"thinking" pause. Pile-ons during the window cancel and reschedule the
+same 3.5 s baseline — the clock never gets shorter.
+
+`maybeFinishGame` cancels the auto-resolution timer when the game ends.
+Constants live at the top of `game.gateway.ts`.
 
 ## Refill order
 
@@ -137,19 +194,44 @@ the round into a stuck state. Defender keeps agency in two cases:
   `finishedAt` is the most recent is named the Durak.
 - Implemented in `checkFinished` (engine).
 
-## Disconnect / reconnect / forfeit
+## Disconnect / reconnect / leave
 
 - Players who disconnect are marked `isConnected: false` but keep their
   seat for `RECONNECT_GRACE_MS = 30_000`.
 - Reconnect: same player ID (for guests, derived from the slugified name —
   same name reclaims the seat) → grace timer cleared, seat restored.
 - After grace expires: lobby rooms drop the player; in-game rooms drop the
-  player AND, if no connected member remains, the room is finished and the
-  in-memory game state is freed.
-- **Forfeit (giving up mid-game)** is currently expressed as "close the
-  app and let the grace expire" — there is no explicit `LEAVE_GAME` event
-  in the protocol. Add one if/when single-player vs. group-of-bots becomes
-  a feature people use to escape losing positions.
+  player via the engine (`leaveGame`) AND, if no connected member remains,
+  the room is finished and the in-memory game state is freed.
+
+### Explicit leave during a game
+
+There is no dedicated `LEAVE_GAME` socket event — the existing
+`LEAVE_ROOM` event handles both lobby and in-game cases. When fired
+while the room is `in-game`, the gateway calls `dropFromGame` →
+`GameService.leave` → `leaveGame(state, playerId)` engine mutator
+(`game.engine.ts:584`). Same path is taken when grace expires (see
+`finalizeDisconnect`).
+
+`leaveGame` mutator behaviour (Standard mode):
+
+- Player is marked `hasLeft = true`. Their hand is dumped to the
+  discard pile (not redistributed). Seat stays in `players[]` so seat
+  indices never shift.
+- **If the leaver was the defender**: any cards already on the table
+  are forfeited to the discard, the round resets with the same main
+  attacker continuing, and the defender role advances to the next
+  active seat. Hands refill so the next round opens clean.
+- **If the leaver was the main attacker**: defender keeps defending
+  the existing table; main-attacker role moves to the next active
+  seat (excluding the defender, via `nextActiveIdx(s, idx, defenderIdx)`).
+- **If the leaver was a pile-on neighbour**: no structural fix needed —
+  `nextActiveIdx` and `eligibleAttackerIndices` already skip `hasLeft`.
+- `checkFinished` runs at the end. Auto-resolution is **not** chained
+  inline — the gateway picks it up via `maybeScheduleAutoResolution`
+  (same delayed path as any other mutation).
+- Idempotent: calling `leaveGame` for a player who already left, has
+  finished, or where the game is over → no-op.
 
 ## Implementation invariants worth knowing
 
@@ -188,3 +270,7 @@ the round into a stuck state. Defender keeps agency in two cases:
   the spec of what "realistic" means).
 - Player reports a rule-feel bug ("this should/shouldn't have worked").
 - Rebalancing the seat layout / mobile UI for different player counts.
+- **Adding a new game mode / variant** — read the `## Game modes`
+  section first, then add the delta under a new `## Variants` section.
+  The Standard rules above describe the *baseline* every variant
+  diverges from.
